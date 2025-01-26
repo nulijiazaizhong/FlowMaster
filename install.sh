@@ -32,44 +32,21 @@ show_menu() {
     if [ "$is_installed" = "true" ]; then
         echo -e "1) 重新安装 FlowMaster"
         echo -e "2) 卸载 FlowMaster"
-        echo -e "3) 退出"
+        echo -e "3) 更新 FlowMaster"
+        echo -e "4) 退出脚本"
         echo
         echo -e "检测到系统已安装 FlowMaster"
     else
         echo -e "1) 安装 FlowMaster"
-        echo -e "2) 退出"
+        echo -e "2) 卸载 FlowMaster"
+        echo -e "3) 退出脚本"
         echo
         echo -e "系统未安装 FlowMaster"
     fi
     
     echo -e "请选择操作: "
-    
-    # 创建临时脚本来处理用户输入
-    TMP_SCRIPT=$(mktemp)
-    cat > "$TMP_SCRIPT" << 'EOF'
-#!/bin/bash
-read -t 10 choice
-echo "$choice"
-EOF
-    chmod +x "$TMP_SCRIPT"
-    
-    # 使用新的终端执行读取操作
-    if [ -t 1 ] && command -v script >/dev/null 2>&1; then
-        choice=$(script -q /dev/null -c "$TMP_SCRIPT")
-    else
-        choice=$(bash "$TMP_SCRIPT")
-    fi
-    
-    # 清理临时脚本
-    rm -f "$TMP_SCRIPT"
-    
-    # 处理选择结果
-    if [ -z "$choice" ]; then
-        echo -e "\n${YELLOW}未检测到输入，默认选择安装/重新安装...${NC}"
-        echo "1"
-    else
-        echo "$choice"
-    fi
+    read choice
+    echo "$choice"
 }
 
 # 卸载函数
@@ -315,6 +292,37 @@ finish_installation() {
     fi
 }
 
+# 添加更新函数
+update_flowmaster() {
+    echo -e "\n${YELLOW}正在更新 FlowMaster...${NC}"
+    
+    # 停止服务
+    pm2 stop flowmaster 2>/dev/null || true
+    
+    # 备份原有配置
+    if [ -f "/opt/flowmaster/config.js" ]; then
+        cp /opt/flowmaster/config.js /opt/flowmaster/config.js.bak
+    fi
+    
+    # 更新代码
+    cd /opt/flowmaster
+    curl -L https://github.com/vbskycn/FlowMaster/archive/main.tar.gz | tar xz --strip-components=1 --exclude='vnstat'
+    
+    # 恢复配置
+    if [ -f "/opt/flowmaster/config.js.bak" ]; then
+        mv /opt/flowmaster/config.js.bak /opt/flowmaster/config.js
+    fi
+    
+    # 更新依赖
+    npm install
+    
+    # 重启服务
+    pm2 restart flowmaster
+    pm2 save
+    
+    echo -e "${GREEN}FlowMaster 更新完成！${NC}"
+}
+
 # 修改主程序入口
 main() {
     local is_installed=false
@@ -322,19 +330,32 @@ main() {
         is_installed=true
     fi
     
-    # 检查是否通过管道运行
-    if [ ! -t 0 ]; then
-        echo -e "${YELLOW}检测到通过管道运行安装脚本${NC}"
-        echo -e "${YELLOW}请使用以下命令来管理 FlowMaster：${NC}"
-        echo -e "\n${GREEN}1. 安装/重新安装：${NC}"
-        echo "wget -O flowmaster_install.sh https://raw.githubusercontent.com/vbskycn/FlowMaster/main/install.sh && bash flowmaster_install.sh"
-        echo -e "\n${GREEN}2. 卸载：${NC}"
-        echo "flowmaster uninstall"
-        echo -e "\n${YELLOW}退出安装...${NC}"
-        exit 0
+    # 创建临时脚本来处理用户输入
+    TMP_SCRIPT=$(mktemp)
+    cat > "$TMP_SCRIPT" << 'EOF'
+#!/bin/bash
+show_menu() {
+    local is_installed=$1
+    if [ "$is_installed" = "true" ]; then
+        echo "1) 重新安装 FlowMaster"
+        echo "2) 卸载 FlowMaster"
+        echo "3) 更新 FlowMaster"
+        echo "4) 退出脚本"
+    else
+        echo "1) 安装 FlowMaster"
+        echo "2) 卸载 FlowMaster"
+        echo "3) 退出脚本"
     fi
+    echo
+    read -p "请选择操作: " choice
+    echo "$choice"
+}
+show_menu "$1"
+EOF
+    chmod +x "$TMP_SCRIPT"
     
-    choice=$(show_menu $is_installed)
+    choice=$($TMP_SCRIPT "$is_installed")
+    rm -f "$TMP_SCRIPT"
     
     if [ "$is_installed" = "true" ]; then
         case $choice in
@@ -354,6 +375,9 @@ main() {
                 uninstall
                 ;;
             3)
+                update_flowmaster
+                ;;
+            4)
                 echo -e "\n${GREEN}退出程序${NC}"
                 exit 0
                 ;;
@@ -374,6 +398,9 @@ main() {
                 finish_installation
                 ;;
             2)
+                echo -e "\n${GREEN}系统未安装，无需卸载${NC}"
+                ;;
+            3)
                 echo -e "\n${GREEN}退出程序${NC}"
                 exit 0
                 ;;
