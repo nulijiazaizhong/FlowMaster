@@ -54,6 +54,44 @@ install_dependencies() {
     # 启动并启用 vnstat 服务
     systemctl start vnstat
     systemctl enable vnstat
+
+    detect_network_interface
+}
+
+# 在 install_dependencies 函数中添加以下内容
+detect_network_interface() {
+    echo -e "\n${GREEN}检测网络接口...${NC}"
+    ACTIVE_INTERFACE=$(ip -o link show up | grep -v "lo:" | awk -F': ' '{print $2}' | head -n 1)
+    
+    if [ -n "$ACTIVE_INTERFACE" ]; then
+        echo -e "${GREEN}检测到网络接口: ${ACTIVE_INTERFACE}${NC}"
+        
+        # 停止 vnstat 服务
+        systemctl stop vnstat
+        
+        # 删除旧数据库
+        rm -f /var/lib/vnstat/*
+        
+        # 初始化数据库
+        vnstat -u -i $ACTIVE_INTERFACE
+        
+        # 修改配置文件以加快数据收集
+        sed -i 's/UpdateInterval .*/UpdateInterval 30/' /etc/vnstat.conf
+        sed -i 's/SaveInterval .*/SaveInterval 60/' /etc/vnstat.conf
+        
+        # 重启服务
+        systemctl restart vnstat
+        
+        # 等待初始数据收集
+        echo -e "${YELLOW}等待初始数据收集（约1分钟）...${NC}"
+        sleep 60
+        
+        # 再次更新数据库
+        vnstat -u -i $ACTIVE_INTERFACE
+    else
+        echo -e "${RED}未检测到活动的网络接口${NC}"
+        exit 1
+    fi
 }
 
 # 安装 PM2
