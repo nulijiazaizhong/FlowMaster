@@ -23,15 +23,26 @@ check_installation() {
 
 # 显示菜单
 show_menu() {
+    local is_installed=$1
+    
     echo -e "${GREEN}================================${NC}"
     echo -e "${GREEN}    FlowMaster 管理菜单${NC}"
     echo -e "${GREEN}================================${NC}"
-    echo -e "1) 重新安装 FlowMaster"
-    echo -e "2) 卸载 FlowMaster"
-    echo -e "3) 退出"
-    echo
-    echo -e "检测到系统已安装 FlowMaster"
-    echo -e "请选择操作 [1-3]: "
+    
+    if [ "$is_installed" = "true" ]; then
+        echo -e "1) 重新安装 FlowMaster"
+        echo -e "2) 卸载 FlowMaster"
+        echo -e "3) 退出"
+        echo
+        echo -e "检测到系统已安装 FlowMaster"
+    else
+        echo -e "1) 安装 FlowMaster"
+        echo -e "2) 退出"
+        echo
+        echo -e "系统未安装 FlowMaster"
+    fi
+    
+    echo -e "请选择操作: "
     
     # 创建临时脚本来处理用户输入
     TMP_SCRIPT=$(mktemp)
@@ -54,7 +65,7 @@ EOF
     
     # 处理选择结果
     if [ -z "$choice" ]; then
-        echo -e "\n${YELLOW}未检测到输入，默认选择重新安装...${NC}"
+        echo -e "\n${YELLOW}未检测到输入，默认选择安装/重新安装...${NC}"
         echo "1"
     else
         echo "$choice"
@@ -304,19 +315,28 @@ finish_installation() {
     fi
 }
 
-# 新的主程序入口
+# 修改主程序入口
 main() {
+    local is_installed=false
     if check_installation; then
-        # 下载完整脚本并直接执行
-        if [ "$0" = "bash" ]; then
-            echo -e "${YELLOW}请使用以下命令重新运行脚本：${NC}"
-            echo -e "wget -O flowmaster_install.sh https://raw.githubusercontent.com/vbskycn/FlowMaster/main/install.sh"
-            echo -e "bash flowmaster_install.sh"
-            exit 1
-        fi
-        
-        choice=$(show_menu)
-        
+        is_installed=true
+    fi
+    
+    # 检查是否通过管道运行
+    if [ ! -t 0 ]; then
+        echo -e "${YELLOW}检测到通过管道运行安装脚本${NC}"
+        echo -e "${YELLOW}请使用以下命令来管理 FlowMaster：${NC}"
+        echo -e "\n${GREEN}1. 安装/重新安装：${NC}"
+        echo "wget -O flowmaster_install.sh https://raw.githubusercontent.com/vbskycn/FlowMaster/main/install.sh && bash flowmaster_install.sh"
+        echo -e "\n${GREEN}2. 卸载：${NC}"
+        echo "flowmaster uninstall"
+        echo -e "\n${YELLOW}退出安装...${NC}"
+        exit 0
+    fi
+    
+    choice=$(show_menu $is_installed)
+    
+    if [ "$is_installed" = "true" ]; then
         case $choice in
             1)
                 echo -e "\n${YELLOW}准备重新安装 FlowMaster...${NC}"
@@ -343,18 +363,25 @@ main() {
                 ;;
         esac
     else
-        # 打印横幅
-        echo -e "${GREEN}================================${NC}"
-        echo -e "${GREEN}    FlowMaster 安装脚本${NC}"
-        echo -e "${GREEN}================================${NC}"
-        
-        # 执行新安装
-        install_dependencies
-        install_pm2
-        install_flowmaster
-        setup_pm2
-        create_control_script
-        finish_installation
+        case $choice in
+            1)
+                echo -e "\n${GREEN}开始安装 FlowMaster...${NC}"
+                install_dependencies
+                install_pm2
+                install_flowmaster
+                setup_pm2
+                create_control_script
+                finish_installation
+                ;;
+            2)
+                echo -e "\n${GREEN}退出程序${NC}"
+                exit 0
+                ;;
+            *)
+                echo -e "\n${YELLOW}无效的选择，请重新运行脚本${NC}"
+                exit 1
+                ;;
+        esac
     fi
 }
 
