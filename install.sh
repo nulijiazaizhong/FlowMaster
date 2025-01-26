@@ -92,6 +92,7 @@ install_dependencies() {
     check_and_install "vnstat"
     check_and_install "nodejs"
     check_and_install "npm"
+    check_and_install "bc"
     
     # 启动并启用 vnstat 服务
     systemctl start vnstat
@@ -114,12 +115,24 @@ detect_network_interface() {
         # 删除旧数据库
         rm -f /var/lib/vnstat/*
         
-        # 初始化数据库
-        vnstat -u -i $ACTIVE_INTERFACE
+        # 检查 vnstat 版本并相应处理
+        VNSTAT_VERSION=$(vnstat --version | grep -oP '\d+\.\d+')
+        
+        # 初始化数据库（根据版本使用不同的命令）
+        if (( $(echo "$VNSTAT_VERSION >= 2.0" | bc -l) )); then
+            # 2.0 及以上版本
+            vnstat --add -i $ACTIVE_INTERFACE
+            vnstat --create -i $ACTIVE_INTERFACE
+        else
+            # 旧版本
+            vnstat -u -i $ACTIVE_INTERFACE
+        fi
         
         # 修改配置文件以加快数据收集
-        sed -i 's/UpdateInterval .*/UpdateInterval 30/' /etc/vnstat.conf
-        sed -i 's/SaveInterval .*/SaveInterval 60/' /etc/vnstat.conf
+        if [ -f "/etc/vnstat.conf" ]; then
+            sed -i 's/UpdateInterval .*/UpdateInterval 30/' /etc/vnstat.conf
+            sed -i 's/SaveInterval .*/SaveInterval 60/' /etc/vnstat.conf
+        fi
         
         # 重启服务
         systemctl restart vnstat
@@ -129,7 +142,11 @@ detect_network_interface() {
         sleep 60
         
         # 再次更新数据库
-        vnstat -u -i $ACTIVE_INTERFACE
+        if (( $(echo "$VNSTAT_VERSION >= 2.0" | bc -l) )); then
+            vnstat --add -i $ACTIVE_INTERFACE
+        else
+            vnstat -u -i $ACTIVE_INTERFACE
+        fi
     else
         echo -e "${RED}未检测到活动的网络接口${NC}"
         exit 1
