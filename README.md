@@ -40,7 +40,7 @@ FlowMaster 是一个基于 vnstat 的专业网络流量监控系统，提供实�
 ### 一键部署
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vbskycn/FlowMaster/main/install.sh | sudo bash
+curl -o install.sh https://raw.githubusercontent.com/vbskycn/FlowMaster/main/install.sh && chmod +x install.sh && sudo ./install.sh
 ```
 
 ### 常用命令
