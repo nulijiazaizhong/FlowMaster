@@ -26,7 +26,7 @@ show_menu() {
     local is_installed=$1
     
     echo -e "${GREEN}================================${NC}"
-    echo -e "${GREEN}    FlowMaster 管理菜单${NC}"
+    echo -e "${GREEN}    FlowMaster 管理菜单v1.01${NC}"
     echo -e "${GREEN}================================${NC}"
     
     if [ "$is_installed" = "true" ]; then
@@ -352,23 +352,7 @@ main() {
     fi
     
     echo -e "请选择操作 [1-4]: "
-    
-    # 使用 expect 处理输入
-    TEMP_SCRIPT=$(mktemp)
-    cat > "$TEMP_SCRIPT" << 'EOF'
-#!/usr/bin/expect -f
-set timeout 30
-spawn bash -c {
-    read -p "请输入选项: " choice
-    echo $choice
-}
-expect "请输入选项: "
-interact
-EOF
-    chmod +x "$TEMP_SCRIPT"
-    
-    choice=$("$TEMP_SCRIPT")
-    rm -f "$TEMP_SCRIPT"
+    read choice
     
     # 处理选择
     if [ "$is_installed" = "true" ]; then
