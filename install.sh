@@ -12,10 +12,52 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-# 打印横幅
-echo -e "${GREEN}================================${NC}"
-echo -e "${GREEN}    FlowMaster 安装脚本${NC}"
-echo -e "${GREEN}================================${NC}"
+# 检查是否已安装
+check_installation() {
+    if [ -d "/opt/flowmaster" ] || command -v flowmaster &> /dev/null; then
+        return 0 # 已安装
+    else
+        return 1 # 未安装
+    fi
+}
+
+# 显示菜单
+show_menu() {
+    clear
+    echo -e "${GREEN}================================${NC}"
+    echo -e "${GREEN}    FlowMaster 管理菜单${NC}"
+    echo -e "${GREEN}================================${NC}"
+    echo -e "1) 重新安装 FlowMaster"
+    echo -e "2) 卸载 FlowMaster"
+    echo -e "3) 退出"
+    echo
+    echo -e "检测到系统已安装 FlowMaster"
+    echo -e "请选择操作 [1-3]: "
+}
+
+# 卸载函数
+uninstall() {
+    echo -e "\n${YELLOW}正在卸载 FlowMaster...${NC}"
+    
+    # 停止和删除 PM2 实例
+    if command -v pm2 &> /dev/null; then
+        pm2 stop flowmaster 2>/dev/null || true
+        pm2 delete flowmaster 2>/dev/null || true
+        pm2 save
+    fi
+    
+    # 删除安装目录
+    rm -rf /opt/flowmaster
+    
+    # 删除控制脚本
+    rm -f /usr/local/bin/flowmaster
+    
+    # 清理 vnstat 数据库（可选）
+    systemctl stop vnstat
+    rm -f /var/lib/vnstat/*
+    
+    echo -e "${GREEN}FlowMaster 已成功卸载！${NC}"
+}
 
 # 函数：检查并安装依赖
 check_and_install() {
@@ -189,15 +231,55 @@ finish_installation() {
     echo -e "\n${GREEN}访问地址: http://您的服务器IP:10088${NC}"
 }
 
-# 主安装流程
+# 新的主程序入口
 main() {
-    install_dependencies
-    install_pm2
-    install_flowmaster
-    setup_pm2
-    create_control_script
-    finish_installation
+    if check_installation; then
+        while true; do
+            show_menu
+            read -r choice
+            case $choice in
+                1)
+                    echo -e "\n${YELLOW}准备重新安装 FlowMaster...${NC}"
+                    uninstall
+                    echo -e "\n${GREEN}开始新安装...${NC}"
+                    sleep 2
+                    install_dependencies
+                    install_pm2
+                    install_flowmaster
+                    setup_pm2
+                    create_control_script
+                    finish_installation
+                    break
+                    ;;
+                2)
+                    uninstall
+                    break
+                    ;;
+                3)
+                    echo -e "\n${GREEN}退出程序${NC}"
+                    exit 0
+                    ;;
+                *)
+                    echo -e "\n${RED}无效的选择，请重试${NC}"
+                    sleep 2
+                    ;;
+            esac
+        done
+    else
+        # 打印横幅
+        echo -e "${GREEN}================================${NC}"
+        echo -e "${GREEN}    FlowMaster 安装脚本${NC}"
+        echo -e "${GREEN}================================${NC}"
+        
+        # 执行新安装
+        install_dependencies
+        install_pm2
+        install_flowmaster
+        setup_pm2
+        create_control_script
+        finish_installation
+    fi
 }
 
-# 执行安装
+# 执行主程序
 main 
