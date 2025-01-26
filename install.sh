@@ -107,6 +107,7 @@ install_dependencies() {
     check_and_install "nodejs"
     check_and_install "npm"
     check_and_install "bc"
+    check_and_install "expect"
     
     # 启动并启用 vnstat 服务
     systemctl start vnstat
@@ -350,17 +351,26 @@ main() {
         echo -e "系统未安装 FlowMaster"
     fi
     
-    echo -e "请选择操作 [默认: 1]: "
+    echo -e "请选择操作 [1-4]: "
     
-    # 读取输入，设置超时
-    read -t 10 choice
+    # 使用 expect 处理输入
+    TEMP_SCRIPT=$(mktemp)
+    cat > "$TEMP_SCRIPT" << 'EOF'
+#!/usr/bin/expect -f
+set timeout 30
+spawn bash -c {
+    read -p "请输入选项: " choice
+    echo $choice
+}
+expect "请输入选项: "
+interact
+EOF
+    chmod +x "$TEMP_SCRIPT"
     
-    # 如果没有输入，默认选择1
-    if [ -z "$choice" ]; then
-        choice="1"
-        echo -e "${YELLOW}未检测到输入，默认选择选项 1${NC}"
-    fi
+    choice=$("$TEMP_SCRIPT")
+    rm -f "$TEMP_SCRIPT"
     
+    # 处理选择
     if [ "$is_installed" = "true" ]; then
         case $choice in
             1)
@@ -386,14 +396,8 @@ main() {
                 exit 0
                 ;;
             *)
-                echo -e "\n${YELLOW}无效的选择，默认执行选项 1${NC}"
-                uninstall
-                install_dependencies
-                install_pm2
-                install_flowmaster
-                setup_pm2
-                create_control_script
-                finish_installation
+                echo -e "\n${YELLOW}无效的选择，请重新运行脚本${NC}"
+                exit 1
                 ;;
         esac
     else
@@ -415,13 +419,8 @@ main() {
                 exit 0
                 ;;
             *)
-                echo -e "\n${YELLOW}无效的选择，默认执行选项 1${NC}"
-                install_dependencies
-                install_pm2
-                install_flowmaster
-                setup_pm2
-                create_control_script
-                finish_installation
+                echo -e "\n${YELLOW}无效的选择，请重新运行脚本${NC}"
+                exit 1
                 ;;
         esac
     fi
