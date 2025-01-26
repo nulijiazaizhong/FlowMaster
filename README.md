@@ -2,6 +2,8 @@
 
 [![license](https://img.shields.io/github/license/vbskycn/FlowMaster)](https://github.com/vbskycn/FlowMaster/blob/main/LICENSE)[![stars](https://img.shields.io/github/stars/vbskycn/FlowMaster)](https://github.com/vbskycn/FlowMaster/stargazers)[![issues](https://img.shields.io/github/issues/vbskycn/FlowMaster)](https://github.com/vbskycn/FlowMaster/issues)
 
+![614da06e-5310-4145-bb1f-2254fbcf1147](assets/614da06e-5310-4145-bb1f-2254fbcf1147.jpg)
+
 ## 📝 项目介绍
 
 FlowMaster 是一个基于 vnstat 的专业网络流量监控系统，提供实时流量统计、历史数据分析等功能。系统采用现代化的 Web 界面，支持多网卡监控，让网络流量监控变得简单而强大。
@@ -213,3 +215,6 @@ pm2 start ecosystem.config.js
 ---
 
 如果这个项目对你有帮助，欢迎 star ⭐️
+
+
+
