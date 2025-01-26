@@ -32,7 +32,19 @@ show_menu() {
     echo -e "3) 退出"
     echo
     echo -e "检测到系统已安装 FlowMaster"
-    echo -e "请选择操作 [1-3]: "
+    echo -e "请在 10 秒内选择操作 [1-3] (默认: 1): "
+    
+    # 设置读取超时
+    read -t 10 choice
+    
+    # 如果没有输入（超时），默认选择1
+    if [ $? -gt 128 ]; then
+        echo -e "\n${YELLOW}未检测到输入，默认选择重新安装...${NC}"
+        choice=1
+    fi
+    
+    echo "选择的操作: $choice"
+    return $choice
 }
 
 # 卸载函数
@@ -265,37 +277,42 @@ finish_installation() {
 # 新的主程序入口
 main() {
     if check_installation; then
-        while true; do
-            show_menu
-            read -r choice
-            case $choice in
-                1)
-                    echo -e "\n${YELLOW}准备重新安装 FlowMaster...${NC}"
-                    uninstall
-                    echo -e "\n${GREEN}开始新安装...${NC}"
-                    sleep 2
-                    install_dependencies
-                    install_pm2
-                    install_flowmaster
-                    setup_pm2
-                    create_control_script
-                    finish_installation
-                    break
-                    ;;
-                2)
-                    uninstall
-                    break
-                    ;;
-                3)
-                    echo -e "\n${GREEN}退出程序${NC}"
-                    exit 0
-                    ;;
-                *)
-                    echo -e "\n${RED}无效的选择，请重试${NC}"
-                    sleep 2
-                    ;;
-            esac
-        done
+        show_menu
+        choice=$?
+        
+        case $choice in
+            1)
+                echo -e "\n${YELLOW}准备重新安装 FlowMaster...${NC}"
+                uninstall
+                echo -e "\n${GREEN}开始新安装...${NC}"
+                sleep 2
+                install_dependencies
+                install_pm2
+                install_flowmaster
+                setup_pm2
+                create_control_script
+                finish_installation
+                ;;
+            2)
+                uninstall
+                ;;
+            3)
+                echo -e "\n${GREEN}退出程序${NC}"
+                exit 0
+                ;;
+            *)
+                echo -e "\n${YELLOW}无效的选择，默认执行重新安装...${NC}"
+                uninstall
+                echo -e "\n${GREEN}开始新安装...${NC}"
+                sleep 2
+                install_dependencies
+                install_pm2
+                install_flowmaster
+                setup_pm2
+                create_control_script
+                finish_installation
+                ;;
+        esac
     else
         # 打印横幅
         echo -e "${GREEN}================================${NC}"
