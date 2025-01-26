@@ -330,32 +330,36 @@ main() {
         is_installed=true
     fi
     
-    # 创建临时脚本来处理用户输入
-    TMP_SCRIPT=$(mktemp)
-    cat > "$TMP_SCRIPT" << 'EOF'
-#!/bin/bash
-show_menu() {
-    local is_installed=$1
-    if [ "$is_installed" = "true" ]; then
-        echo "1) 重新安装 FlowMaster"
-        echo "2) 卸载 FlowMaster"
-        echo "3) 更新 FlowMaster"
-        echo "4) 退出脚本"
-    else
-        echo "1) 安装 FlowMaster"
-        echo "2) 卸载 FlowMaster"
-        echo "3) 退出脚本"
-    fi
-    echo
-    read -p "请选择操作: " choice
-    echo "$choice"
-}
-show_menu "$1"
-EOF
-    chmod +x "$TMP_SCRIPT"
+    # 显示菜单
+    echo -e "${GREEN}================================${NC}"
+    echo -e "${GREEN}    FlowMaster 管理菜单${NC}"
+    echo -e "${GREEN}================================${NC}"
     
-    choice=$($TMP_SCRIPT "$is_installed")
-    rm -f "$TMP_SCRIPT"
+    if [ "$is_installed" = "true" ]; then
+        echo -e "1) 重新安装 FlowMaster"
+        echo -e "2) 卸载 FlowMaster"
+        echo -e "3) 更新 FlowMaster"
+        echo -e "4) 退出脚本"
+        echo
+        echo -e "检测到系统已安装 FlowMaster"
+    else
+        echo -e "1) 安装 FlowMaster"
+        echo -e "2) 卸载 FlowMaster"
+        echo -e "3) 退出脚本"
+        echo
+        echo -e "系统未安装 FlowMaster"
+    fi
+    
+    echo -e "请选择操作 [默认: 1]: "
+    
+    # 读取输入，设置超时
+    read -t 10 choice
+    
+    # 如果没有输入，默认选择1
+    if [ -z "$choice" ]; then
+        choice="1"
+        echo -e "${YELLOW}未检测到输入，默认选择选项 1${NC}"
+    fi
     
     if [ "$is_installed" = "true" ]; then
         case $choice in
@@ -382,8 +386,14 @@ EOF
                 exit 0
                 ;;
             *)
-                echo -e "\n${YELLOW}无效的选择，请重新运行脚本${NC}"
-                exit 1
+                echo -e "\n${YELLOW}无效的选择，默认执行选项 1${NC}"
+                uninstall
+                install_dependencies
+                install_pm2
+                install_flowmaster
+                setup_pm2
+                create_control_script
+                finish_installation
                 ;;
         esac
     else
@@ -405,8 +415,13 @@ EOF
                 exit 0
                 ;;
             *)
-                echo -e "\n${YELLOW}无效的选择，请重新运行脚本${NC}"
-                exit 1
+                echo -e "\n${YELLOW}无效的选择，默认执行选项 1${NC}"
+                install_dependencies
+                install_pm2
+                install_flowmaster
+                setup_pm2
+                create_control_script
+                finish_installation
                 ;;
         esac
     fi
