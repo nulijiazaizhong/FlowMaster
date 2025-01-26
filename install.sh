@@ -115,23 +115,36 @@ detect_network_interface() {
         # 删除旧数据库
         rm -f /var/lib/vnstat/*
         
-        # 检查 vnstat 版本并相应处理
-        VNSTAT_VERSION=$(vnstat --version | grep -oP '\d+\.\d+')
+        # 获取 vnstat 版本
+        VNSTAT_VERSION=$(vnstat --version | head -n1 | awk '{print $2}')
+        echo -e "${GREEN}检测到 vnstat 版本: ${VNSTAT_VERSION}${NC}"
         
-        # 初始化数据库（根据版本使用不同的命令）
-        if (( $(echo "$VNSTAT_VERSION >= 2.0" | bc -l) )); then
-            # 2.0 及以上版本
-            vnstat --add -i $ACTIVE_INTERFACE
-            vnstat --create -i $ACTIVE_INTERFACE
+        # 初始化数据库
+        if vnstat --add -i "$ACTIVE_INTERFACE" &>/dev/null; then
+            echo -e "${GREEN}使用新版本命令初始化接口${NC}"
+        elif vnstat -u -i "$ACTIVE_INTERFACE" &>/dev/null; then
+            echo -e "${GREEN}使用旧版本命令初始化接口${NC}"
         else
-            # 旧版本
-            vnstat -u -i $ACTIVE_INTERFACE
+            echo -e "${GREEN}尝试直接创建接口${NC}"
+            # 某些版本可能不需要显式初始化
+            systemctl restart vnstat
         fi
         
         # 修改配置文件以加快数据收集
         if [ -f "/etc/vnstat.conf" ]; then
-            sed -i 's/UpdateInterval .*/UpdateInterval 30/' /etc/vnstat.conf
-            sed -i 's/SaveInterval .*/SaveInterval 60/' /etc/vnstat.conf
+            cp /etc/vnstat.conf /etc/vnstat.conf.bak
+            echo -e "${GREEN}备份原配置文件到 /etc/vnstat.conf.bak${NC}"
+            
+            # 更新配置
+            sed -i 's/^UpdateInterval.*/UpdateInterval 30/' /etc/vnstat.conf
+            sed -i 's/^SaveInterval.*/SaveInterval 60/' /etc/vnstat.conf
+            
+            # 确保接口在配置文件中
+            if ! grep -q "^Interface \"$ACTIVE_INTERFACE\"" /etc/vnstat.conf; then
+                echo "Interface \"$ACTIVE_INTERFACE\"" >> /etc/vnstat.conf
+            fi
+            
+            echo -e "${GREEN}已更新配置文件${NC}"
         fi
         
         # 重启服务
@@ -141,12 +154,13 @@ detect_network_interface() {
         echo -e "${YELLOW}等待初始数据收集（约1分钟）...${NC}"
         sleep 60
         
-        # 再次更新数据库
-        if (( $(echo "$VNSTAT_VERSION >= 2.0" | bc -l) )); then
-            vnstat --add -i $ACTIVE_INTERFACE
+        # 验证接口是否正常工作
+        if vnstat -i "$ACTIVE_INTERFACE" &>/dev/null; then
+            echo -e "${GREEN}接口 $ACTIVE_INTERFACE 已成功初始化${NC}"
         else
-            vnstat -u -i $ACTIVE_INTERFACE
+            echo -e "${RED}警告：接口初始化可能不完整，但这不影响继续安装${NC}"
         fi
+        
     else
         echo -e "${RED}未检测到活动的网络接口${NC}"
         exit 1
