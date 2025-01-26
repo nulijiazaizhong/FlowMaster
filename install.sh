@@ -33,20 +33,31 @@ show_menu() {
     echo -e "检测到系统已安装 FlowMaster"
     echo -e "请选择操作 [1-3]: "
     
-    # 检查是否通过管道运行
-    if [ -t 0 ]; then
-        # 终端交互模式
-        read -t 10 choice
-        if [ $? -gt 128 ]; then
-            echo -e "\n${YELLOW}未检测到输入，默认选择重新安装...${NC}"
-            echo "1"
-        else
-            echo "$choice"
-        fi
+    # 创建临时脚本来处理用户输入
+    TMP_SCRIPT=$(mktemp)
+    cat > "$TMP_SCRIPT" << 'EOF'
+#!/bin/bash
+read -t 10 choice
+echo "$choice"
+EOF
+    chmod +x "$TMP_SCRIPT"
+    
+    # 使用新的终端执行读取操作
+    if [ -t 1 ] && command -v script >/dev/null 2>&1; then
+        choice=$(script -q /dev/null -c "$TMP_SCRIPT")
     else
-        # 通过管道运行时默认选择重新安装
-        echo -e "${YELLOW}通过管道运行，默认选择重新安装...${NC}"
+        choice=$(bash "$TMP_SCRIPT")
+    fi
+    
+    # 清理临时脚本
+    rm -f "$TMP_SCRIPT"
+    
+    # 处理选择结果
+    if [ -z "$choice" ]; then
+        echo -e "\n${YELLOW}未检测到输入，默认选择重新安装...${NC}"
         echo "1"
+    else
+        echo "$choice"
     fi
 }
 
@@ -296,6 +307,14 @@ finish_installation() {
 # 新的主程序入口
 main() {
     if check_installation; then
+        # 下载完整脚本并直接执行
+        if [ "$0" = "bash" ]; then
+            echo -e "${YELLOW}请使用以下命令重新运行脚本：${NC}"
+            echo -e "wget -O flowmaster_install.sh https://raw.githubusercontent.com/vbskycn/FlowMaster/main/install.sh"
+            echo -e "bash flowmaster_install.sh"
+            exit 1
+        fi
+        
         choice=$(show_menu)
         
         case $choice in
@@ -319,21 +338,8 @@ main() {
                 exit 0
                 ;;
             *)
-                if [ -t 0 ]; then
-                    # 终端交互模式下提示重新运行
-                    echo -e "\n${YELLOW}无效的选择，请重新运行脚本${NC}"
-                    exit 1
-                else
-                    # 通过管道运行时默认重新安装
-                    echo -e "\n${YELLOW}无效的选择，默认执行重新安装...${NC}"
-                    uninstall
-                    install_dependencies
-                    install_pm2
-                    install_flowmaster
-                    setup_pm2
-                    create_control_script
-                    finish_installation
-                fi
+                echo -e "\n${YELLOW}无效的选择，请重新运行脚本${NC}"
+                exit 1
                 ;;
         esac
     else
