@@ -35,37 +35,44 @@ FlowMaster 是一个基于 vnstat 的专业网络流量监控系统，提供实�
 | vnstat | 2.0.0 或更高版本 |
 | 包管理器 | npm 或 yarn |
 
-### 自动安装(推荐)
+### 一键部署
 
-```
+```bash
 curl -fsSL https://raw.githubusercontent.com/vbskycn/FlowMaster/main/install.sh | sudo bash
 ```
 
-```
-##### 启动服务
+### 常用命令
 
+启动服务:
+```bash
 flowmaster start
+```
 
-##### 2停止服务
-
+停止服务:
+```bash
 flowmaster stop
+```
 
-##### 3重启服务
-
+重启服务:
+```bash
 flowmaster restart
+```
 
-##### 4查看状态
-
+查看状态:
+```bash
 flowmaster status
+```
 
-##### 5卸载服务
-
+卸载服务:
+```bash
 flowmaster uninstall
 ```
 
+### 访问方式
 
+安装完成后，通过浏览器访问：`http://服务器IP:10088`
 
-
+> 注意：请确保防火墙已放行 10088 端口
 
 ### 手动安装步骤
 
