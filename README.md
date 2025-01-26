@@ -86,14 +86,23 @@ sudo apt-get install vnstat
 sudo yum install vnstat
 ```
 
-#### 2. 克隆项目
+#### 2. 安装 PM2
+```bash
+# 全局安装 PM2
+sudo npm install -g pm2
+
+# 设置 PM2 开机自启
+sudo pm2 startup
+```
+
+#### 3. 克隆项目
 
 ```bash
 git clone https://github.com/vbskycn/FlowMaster.git
 cd FlowMaster
 ```
 
-#### 3. 安装依赖
+#### 4. 安装依赖
 
 ```bash
 npm install
@@ -101,22 +110,64 @@ npm install
 yarn install
 ```
 
-#### 4. 启动服务
+#### 5. 使用 PM2 启动服务
 
 ```bash
-npm start
-# 或
-yarn start
+# 启动服务
+pm2 start server.js --name flowmaster
+
+# 保存 PM2 配置
+pm2 save
+```
+
+#### 6. PM2 管理命令
+
+```bash
+# 查看服务状态
+pm2 status flowmaster
+
+# 查看服务日志
+pm2 logs flowmaster
+
+# 重启服务
+pm2 restart flowmaster
+
+# 停止服务
+pm2 stop flowmaster
+
+# 删除服务
+pm2 delete flowmaster
+
+# 查看详细信息
+pm2 show flowmaster
+
+# 监控服务
+pm2 monit
 ```
 
 默认访问地址：`http://localhost:10088`
 
 ### 🔧 配置说明
 
-可通过环境变量配置端口：
+使用 PM2 设置环境变量：
 
 ```bash
-PORT=8080 npm start
+# 设置端口
+pm2 start server.js --name flowmaster --env PORT=8080
+
+# 或在 ecosystem.config.js 中配置
+echo 'module.exports = {
+  apps: [{
+    name: "flowmaster",
+    script: "server.js",
+    env: {
+      PORT: 8080
+    }
+  }]
+}' > ecosystem.config.js
+
+# 使用配置文件启动
+pm2 start ecosystem.config.js
 ```
 
 ## 📖 使用说明
