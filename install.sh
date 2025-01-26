@@ -23,7 +23,6 @@ check_installation() {
 
 # 显示菜单
 show_menu() {
-    clear
     echo -e "${GREEN}================================${NC}"
     echo -e "${GREEN}    FlowMaster 管理菜单${NC}"
     echo -e "${GREEN}================================${NC}"
@@ -32,17 +31,22 @@ show_menu() {
     echo -e "3) 退出"
     echo
     echo -e "检测到系统已安装 FlowMaster"
-    echo -e "请在 10 秒内选择操作 [1-3] (默认: 1): "
+    echo -e "请选择操作 [1-3]: "
     
-    # 设置读取超时
-    read -t 10 choice
-    
-    # 如果没有输入（超时），默认选择1
-    if [ $? -gt 128 ]; then
-        echo -e "\n${YELLOW}未检测到输入，默认选择重新安装...${NC}"
-        echo "1"
+    # 检查是否通过管道运行
+    if [ -t 0 ]; then
+        # 终端交互模式
+        read -t 10 choice
+        if [ $? -gt 128 ]; then
+            echo -e "\n${YELLOW}未检测到输入，默认选择重新安装...${NC}"
+            echo "1"
+        else
+            echo "$choice"
+        fi
     else
-        echo "$choice"
+        # 通过管道运行时默认选择重新安装
+        echo -e "${YELLOW}通过管道运行，默认选择重新安装...${NC}"
+        echo "1"
     fi
 }
 
@@ -315,8 +319,21 @@ main() {
                 exit 0
                 ;;
             *)
-                echo -e "\n${YELLOW}无效的选择，请重新运行脚本${NC}"
-                exit 1
+                if [ -t 0 ]; then
+                    # 终端交互模式下提示重新运行
+                    echo -e "\n${YELLOW}无效的选择，请重新运行脚本${NC}"
+                    exit 1
+                else
+                    # 通过管道运行时默认重新安装
+                    echo -e "\n${YELLOW}无效的选择，默认执行重新安装...${NC}"
+                    uninstall
+                    install_dependencies
+                    install_pm2
+                    install_flowmaster
+                    setup_pm2
+                    create_control_script
+                    finish_installation
+                fi
                 ;;
         esac
     else
