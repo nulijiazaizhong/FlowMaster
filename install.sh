@@ -333,7 +333,7 @@ main() {
     
     # 显示菜单
     echo -e "${GREEN}================================${NC}"
-    echo -e "${GREEN}    FlowMaster 管理菜单${NC}"
+    echo -e "${GREEN}    FlowMaster 管理菜单v1.01${NC}"
     echo -e "${GREEN}================================${NC}"
     
     if [ "$is_installed" = "true" ]; then
