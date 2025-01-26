@@ -40,11 +40,10 @@ show_menu() {
     # 如果没有输入（超时），默认选择1
     if [ $? -gt 128 ]; then
         echo -e "\n${YELLOW}未检测到输入，默认选择重新安装...${NC}"
-        choice=1
+        echo "1"
+    else
+        echo "$choice"
     fi
-    
-    echo "选择的操作: $choice"
-    return $choice
 }
 
 # 卸载函数
@@ -293,8 +292,7 @@ finish_installation() {
 # 新的主程序入口
 main() {
     if check_installation; then
-        show_menu
-        choice=$?
+        choice=$(show_menu)
         
         case $choice in
             1)
@@ -317,16 +315,8 @@ main() {
                 exit 0
                 ;;
             *)
-                echo -e "\n${YELLOW}无效的选择，默认执行重新安装...${NC}"
-                uninstall
-                echo -e "\n${GREEN}开始新安装...${NC}"
-                sleep 2
-                install_dependencies
-                install_pm2
-                install_flowmaster
-                setup_pm2
-                create_control_script
-                finish_installation
+                echo -e "\n${YELLOW}无效的选择，请重新运行脚本${NC}"
+                exit 1
                 ;;
         esac
     else
