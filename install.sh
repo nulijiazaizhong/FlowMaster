@@ -66,7 +66,7 @@ uninstall() {
     # 删除控制脚本
     rm -f /usr/local/bin/flowmaster
     
-    # 清理 vnstat 数据库（可选）
+    # 清理 vnstat 数据库
     systemctl stop vnstat
     rm -f /var/lib/vnstat/*
     
@@ -293,31 +293,31 @@ finish_installation() {
     fi
 }
 
-# 添加更新函数
+# 更新函数的具体实现
 update_flowmaster() {
     echo -e "\n${YELLOW}正在更新 FlowMaster...${NC}"
     
-    # 停止服务
+    # 1. 停止当前运行的服务
     pm2 stop flowmaster 2>/dev/null || true
     
-    # 备份原有配置
+    # 2. 备份现有配置文件
     if [ -f "/opt/flowmaster/config.js" ]; then
         cp /opt/flowmaster/config.js /opt/flowmaster/config.js.bak
     fi
     
-    # 更新代码
+    # 3. 更新代码
     cd /opt/flowmaster
     curl -L https://github.com/vbskycn/FlowMaster/archive/main.tar.gz | tar xz --strip-components=1 --exclude='vnstat'
     
-    # 恢复配置
+    # 4. 恢复配置文件
     if [ -f "/opt/flowmaster/config.js.bak" ]; then
         mv /opt/flowmaster/config.js.bak /opt/flowmaster/config.js
     fi
     
-    # 更新依赖
+    # 5. 更新项目依赖
     npm install
     
-    # 重启服务
+    # 6. 重启服务
     pm2 restart flowmaster
     pm2 save
     
