@@ -3,8 +3,8 @@ const { exec } = require('child_process');
 const cors = require('cors');
 const app = express();
 
-// 从环境变量获取端口，如果没有则使用10088
-const port = process.env.PORT || 10088;
+// 从环境变量获取端口，如果没有则使用10089
+const port = process.env.PORT || 10089;
 
 // 翻译映射
 const translations = {
