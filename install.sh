@@ -280,15 +280,15 @@ finish_installation() {
     PUBLIC_IP=$(curl -s -4 ip.sb || curl -s -4 ifconfig.me || curl -s -4 api.ipify.org)
     
     if [ -n "$PUBLIC_IP" ]; then
-        echo -e "\n${GREEN}访问地址: http://${PUBLIC_IP}:10088${NC}"
+        echo -e "\n${GREEN}访问地址: http://${PUBLIC_IP}:10089${NC}"
     else
         # 如果无法获取外网IP，则尝试获取内网IP
         INTERNAL_IP=$(ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1' | head -n 1)
         if [ -n "$INTERNAL_IP" ]; then
-            echo -e "\n${GREEN}访问地址: http://${INTERNAL_IP}:10088${NC}"
+            echo -e "\n${GREEN}访问地址: http://${INTERNAL_IP}:10089${NC}"
             echo -e "${YELLOW}注意：这是内网地址，如需外网访问请使用服务器公网IP${NC}"
         else
-            echo -e "\n${RED}无法获取服务器IP地址，请手动使用服务器IP访问端口10088${NC}"
+            echo -e "\n${RED}无法获取服务器IP地址，请手动使用服务器IP访问端口10089${NC}"
         fi
     fi
 }
