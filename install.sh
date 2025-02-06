@@ -26,7 +26,7 @@ show_menu() {
     local is_installed=$1
     
     echo -e "${GREEN}================================${NC}"
-    echo -e "${GREEN}    FlowMaster 管理菜单v1.02${NC}"
+    echo -e "${GREEN}    FlowMaster 管理菜单v1.03${NC}"
     echo -e "${GREEN}================================${NC}"
     
     if [ "$is_installed" = "true" ]; then
