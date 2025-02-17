@@ -114,7 +114,7 @@
                 <div class="col-md-6">
                     <div class="d-flex align-items-center mb-3">
                         <h5 class="footer-title me-3 mb-0">FlowMaster</h5>
-                        <span class="badge bg-accent">v1.0.0</span>
+                        <span class="badge bg-accent" v-cloak>v{{version}}</span>
                     </div>
                     <p class="footer-description">
                         专业的网络流量实时监控系统，基于 vnstat 开发
@@ -230,7 +230,8 @@
                     ],
                     autoRefresh: true,
                     refreshInterval: null,
-                    lastUpdateTime: ''
+                    lastUpdateTime: '',
+                    version: ''
                 }
             },
             methods: {
@@ -304,6 +305,14 @@
                             this.stats.forEach(stat => this.loadStats(stat));
                         }, 60000);
                     }
+                },
+                async loadVersion() {
+                    try {
+                        const response = await axios.get('/api/version');
+                        this.version = response.data.version;
+                    } catch (error) {
+                        console.error('获取版本号失败:', error);
+                    }
                 }
             },
             watch: {
@@ -318,6 +327,7 @@
             mounted() {
                 this.loadInterfaces();
                 this.startAutoRefresh();
+                this.loadVersion();
             },
             beforeUnmount() {
                 if (this.refreshInterval) {
