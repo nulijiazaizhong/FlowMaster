@@ -177,25 +177,17 @@
         </div>
     </div>
 
-    <!-- 页脚部分 -->
-    <footer class="footer mt-5">
+    <!-- 修改页脚部分 -->
+    <footer class="footer">
         <div class="container">
-            <div class="row">
-                <div class="col-12">
-                    <hr class="footer-divider">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div class="d-flex align-items-center">
-                            <h5 class="footer-title me-2 mb-0">FlowMaster</h5>
-                            <span class="version-badge" v-cloak>v{{version}}</span>
-                        </div>
-                        <div class="d-flex align-items-center">
-                            <span class="footer-description me-3">基于 vnstat 开发</span>
-                            <a href="https://github.com/vbskycn/FlowMaster" target="_blank" class="footer-link">
-                                <i class="bi bi-github"></i> GitHub
-                            </a>
-                        </div>
-                    </div>
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="footer-text">FlowMaster</span>
+                    <span class="version-badge ms-2" v-cloak>v{{version}}</span>
                 </div>
+                <a href="https://github.com/vbskycn/FlowMaster" target="_blank" class="github-link">
+                    <i class="bi bi-github"></i>
+                </a>
             </div>
         </div>
     </footer>
@@ -203,81 +195,72 @@
     <!-- 添加 Bootstrap Icons -->
     <link rel="stylesheet" href="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css">
 
-    <!-- 添加页脚样式 -->
+    <!-- 更新页脚样式 -->
     <style>
         .footer {
-            padding: 1rem 0;
-            background-color: var(--secondary-bg);
+            border-top: 1px solid #eee;
+            padding: 15px 0;
             margin-top: auto;
+            background-color: #fff;
         }
 
-        .footer-divider {
-            border-color: var(--border-color);
-            margin-bottom: 1rem;
+        .footer-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
-        .footer-title {
-            color: var(--text-primary);
-            font-weight: 600;
-            font-size: 1rem;
+        .footer-brand {
+            display: flex;
+            align-items: center;
         }
 
-        .footer-description {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
+        .footer-text {
+            color: #666;
+            font-size: 14px;
+            font-weight: 500;
         }
 
-        .footer-link {
-            color: var(--text-secondary);
+        .github-link {
+            color: #666;
+            font-size: 20px;
             text-decoration: none;
             transition: color 0.2s ease;
-            font-size: 0.875rem;
         }
 
-        .footer-link:hover {
-            color: var(--accent-color);
-        }
-
-        /* 移动端响应式调整 */
-        @media (max-width: 768px) {
-            .footer .d-flex {
-                flex-direction: column;
-                align-items: center;
-                text-align: center;
-            }
-
-            .footer .d-flex.justify-content-between {
-                gap: 1rem;
-            }
-
-            .footer-description {
-                margin: 0.5rem 0;
-            }
+        .github-link:hover {
+            color: #333;
         }
 
         /* 暗色模式支持 */
         @media (prefers-color-scheme: dark) {
-            :root {
-                --secondary-bg: #1a1a1a;
-                --text-primary: #ffffff;
-                --text-secondary: #a0a0a0;
-                --border-color: #2d2d2d;
-                --accent-color: #0d6efd;
+            .footer {
+                background-color: #1a1a1a;
+                border-top-color: #2d2d2d;
             }
-            
-            pre {
-                background: #2d2d2d;
+
+            .footer-text {
+                color: #a0a0a0;
+            }
+
+            .github-link {
+                color: #a0a0a0;
+            }
+
+            .github-link:hover {
                 color: #ffffff;
             }
-            
-            .card {
-                background-color: #2d2d2d;
-                border-color: #3d3d3d;
+        }
+
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            .footer {
+                padding: 12px 0;
             }
             
-            .card-header {
-                background-color: #252525;
-                border-bottom-color: #3d3d3d;
+            .footer-content {
+                justify-content: center;
+                gap: 15px;
             }
         }
     </style>
