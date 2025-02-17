@@ -8,146 +8,6 @@
     <script src="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/vue/3.2.31/vue.global.min.js"></script>
     <script src="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/axios/0.26.0/axios.min.js"></script>
     <style>
-        /* 亮色模式基础样式 */
-        :root {
-            --primary-color: #4a90e2;          /* 主题色 */
-            --bg-color: #f5f7fa;               /* 背景色 */
-            --card-bg: #ffffff;                /* 卡片背景 */
-            --text-primary: #2c3e50;           /* 主要文字 */
-            --text-secondary: #606f7b;         /* 次要文字 */
-            --border-color: #e2e8f0;           /* 边框颜色 */
-            --hover-color: #edf2f7;            /* 悬停效果 */
-            --code-bg: #f8fafc;                /* 代码块背景 */
-        }
-
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-primary);
-            line-height: 1.6;
-        }
-
-        .card {
-            background-color: var(--card-bg);
-            border: 1px solid var(--border-color);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        .card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-
-        .card-header {
-            background-color: var(--card-bg);
-            border-bottom: 1px solid var(--border-color);
-            color: var(--text-primary);
-        }
-
-        pre {
-            background-color: var(--code-bg);
-            color: var(--text-primary);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-        }
-
-        .text-muted {
-            color: var(--text-secondary) !important;
-        }
-
-        /* 暗色模式样式优化 */
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --primary-color: #60a5fa;      /* 亮蓝色 */
-                --bg-color: #1a1f2e;           /* 深蓝黑 */
-                --card-bg: #242b3d;            /* 卡片深色背景 */
-                --text-primary: #e2e8f0;       /* 主要文字 */
-                --text-secondary: #94a3b8;     /* 次要文字 */
-                --border-color: #2d3748;       /* 边框颜色 */
-                --hover-color: #2d3748;        /* 悬停效果 */
-                --code-bg: #1e293b;            /* 代码块背景 */
-            }
-
-            .card {
-                background-color: var(--card-bg);
-                border-color: var(--border-color);
-                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            }
-
-            .form-select, 
-            .form-control {
-                background-color: var(--code-bg);
-                color: var(--text-primary);
-                border-color: var(--border-color);
-            }
-
-            .form-select:focus, 
-            .form-control:focus {
-                background-color: var(--code-bg);
-                color: var(--text-primary);
-                border-color: var(--primary-color);
-                box-shadow: 0 0 0 0.25rem rgba(96, 165, 250, 0.25);
-            }
-
-            .btn-primary {
-                background-color: var(--primary-color);
-                border-color: var(--primary-color);
-            }
-
-            .btn-primary:hover {
-                background-color: #3b82f6;
-                border-color: #3b82f6;
-            }
-
-            .version-badge {
-                background-color: var(--code-bg);
-                color: var(--text-secondary);
-                border-color: var(--border-color);
-            }
-        }
-
-        /* 增强可读性的文字渐变效果 */
-        h1, h5.card-title {
-            background: linear-gradient(45deg, var(--primary-color), #60a5fa);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            font-weight: 600;
-        }
-
-        /* 优化卡片内容间距 */
-        .card-body {
-            padding: 1.5rem;
-        }
-
-        /* 美化滚动条 */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: var(--bg-color);
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: var(--primary-color);
-            border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: #3b82f6;
-        }
-
-        /* 数据更新动画优化 */
-        @keyframes update-flash {
-            0% { background-color: rgba(74, 144, 226, 0.2); }
-            100% { background-color: transparent; }
-        }
-
-        .data-updated {
-            animation: update-flash 1.5s ease;
-        }
-
         pre {
             background: #f8f9fa;
             padding: 15px;
@@ -249,6 +109,61 @@
         @media (max-width: 576px) {
             .col-md-6 {
                 width: 100%;
+            }
+        }
+
+        /* 添加暗色模式全局样式 */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #1a1a1a;
+                color: #ffffff;
+            }
+
+            .card {
+                background-color: #2d2d2d;
+                border-color: #3d3d3d;
+            }
+
+            .card-header {
+                background-color: #252525;
+                border-bottom-color: #3d3d3d;
+            }
+
+            pre {
+                background: #252525;
+                color: #ffffff;
+            }
+
+            .text-muted {
+                color: #a0a0a0 !important;
+            }
+
+            .version-badge {
+                background-color: #2d2d2d;
+                border-color: #3d3d3d;
+                color: #a0a0a0;
+            }
+
+            .form-select {
+                background-color: #2d2d2d;
+                color: #ffffff;
+                border-color: #3d3d3d;
+            }
+
+            .form-select:focus {
+                background-color: #2d2d2d;
+                color: #ffffff;
+                border-color: #0d6efd;
+            }
+
+            .form-check-input {
+                background-color: #2d2d2d;
+                border-color: #3d3d3d;
+            }
+
+            .form-check-input:checked {
+                background-color: #0d6efd;
+                border-color: #0d6efd;
             }
         }
 
@@ -355,85 +270,124 @@
                 border-color: #0d6efd;
             }
         }
+
+        /* 调整顶部布局样式 */
+        .refresh-control {
+            min-width: 150px;
+        }
+        
+        .update-time {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 2px;
+        }
+        
+        /* 调整日期查询样式 */
+        .card-body.py-2 {
+            padding-top: 0.75rem !important;
+            padding-bottom: 0.75rem !important;
+        }
+        
+        .form-label.small {
+            font-size: 0.875rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .form-control-sm {
+            height: calc(1.5em + 0.5rem + 2px);
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
+        
+        /* 调整间距 */
+        .mb-3 {
+            margin-bottom: 1rem !important;
+        }
+        
+        .py-4 {
+            padding-top: 1.5rem !important;
+            padding-bottom: 1.5rem !important;
+        }
+        
+        /* 响应式调整 */
+        @media (max-width: 768px) {
+            .refresh-control {
+                margin-top: 1rem;
+                text-align: left !important;
+            }
+            
+            .d-flex.justify-content-between {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
     </style>
 </head>
 <body>
     <div id="app" class="container py-4">
-        <div class="d-flex align-items-center mb-4">
-            <h1 class="mb-0">FlowMaster 流量监控</h1>
-            <span class="version-badge ms-3" v-cloak>v{{version}}</span>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="d-flex align-items-center">
+                <h1 class="mb-0">FlowMaster 流量监控</h1>
+                <span class="version-badge ms-3" v-cloak>v{{version}}</span>
+            </div>
+            <div class="refresh-control text-end">
+                <div class="form-check form-switch d-inline-block">
+                    <input class="form-check-input" type="checkbox" v-model="autoRefresh" id="autoRefreshSwitch">
+                    <label class="form-check-label" for="autoRefreshSwitch">
+                        自动刷新
+                    </label>
+                </div>
+                <div class="update-time" v-if="lastUpdateTime">
+                    最后更新: {{lastUpdateTime}}
+                </div>
+            </div>
         </div>
-        <p class="text-muted mb-4">专业的网络流量实时监控系统</p>
-        
+
         <div v-if="error" class="alert alert-danger" v-cloak>
             {{error}}
         </div>
 
-        <div class="refresh-control">
-            <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" v-model="autoRefresh" id="autoRefreshSwitch">
-                <label class="form-check-label" for="autoRefreshSwitch">
-                    自动刷新 (每秒更新)
-                </label>
+        <div class="row align-items-center mb-3">
+            <div class="col-md-4">
+                <select v-model="selectedInterface" class="form-select" @change="loadAllStats" v-cloak>
+                    <option v-for="interface in interfaces" :key="interface" :value="interface">
+                        {{interface}}
+                    </option>
+                </select>
             </div>
-            <div class="update-time" v-if="lastUpdateTime">
-                最后更新时间: {{lastUpdateTime}}
+            <div class="col-md-8">
+                <p class="text-muted mb-0 mt-2 mt-md-0" v-cloak>
+                    当前选择的网络接口: {{selectedInterface}}
+                </p>
             </div>
         </div>
 
-        <form class="mb-4">
-            <div class="row align-items-center">
-                <div class="col-md-6">
-                    <select v-model="selectedInterface" class="form-select" @change="loadAllStats" v-cloak>
-                        <option v-for="interface in interfaces" :key="interface" :value="interface">
-                            {{interface}}
-                        </option>
-                    </select>
-                </div>
-                <div class="col-md-6">
-                    <p class="text-muted mb-0 mt-2 mt-md-0" v-cloak>
-                        当前选择的网络接口: {{selectedInterface}}
-                    </p>
-                </div>
-            </div>
-        </form>
-
-        <div class="date-query mb-4" v-cloak>
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">日期范围查询</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-md-4">
-                            <label for="startDate" class="form-label">开始日期</label>
-                            <input type="date" class="form-control" id="startDate" v-model="dateRange.start">
-                        </div>
-                        <div class="col-md-4">
-                            <label for="endDate" class="form-label">结束日期</label>
-                            <input type="date" class="form-control" id="endDate" v-model="dateRange.end">
-                        </div>
-                        <div class="col-md-4 d-flex align-items-end">
-                            <button type="button" class="btn btn-primary" @click="queryDateRange" :disabled="!isDateRangeValid">
-                                查询
-                            </button>
-                        </div>
+        <div class="card mb-3" v-cloak>
+            <div class="card-body py-2">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-3">
+                        <label for="startDate" class="form-label small mb-1">开始日期</label>
+                        <input type="date" class="form-control form-control-sm" id="startDate" v-model="dateRange.start">
                     </div>
-                    
-                    <!-- 查询结果显示 -->
-                    <div v-if="dateRangeStats.data.length" class="mt-3">
-                        <div class="card" :class="{ loading: dateRangeStats.loading }">
-                            <div class="card-header d-flex justify-content-between align-items-center">
-                                <h6 class="card-title mb-0">查询结果</h6>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" @click="clearDateRangeStats">
-                                    清除
-                                </button>
-                            </div>
-                            <div class="card-body">
-                                <pre>{{dateRangeStats.data.join('\n')}}</pre>
-                            </div>
-                        </div>
+                    <div class="col-md-3">
+                        <label for="endDate" class="form-label small mb-1">结束日期</label>
+                        <input type="date" class="form-control form-control-sm" id="endDate" v-model="dateRange.end">
                     </div>
+                    <div class="col-md-2">
+                        <button type="button" class="btn btn-primary btn-sm w-100" @click="queryDateRange" :disabled="!isDateRangeValid">
+                            查询
+                        </button>
+                    </div>
+                    <div class="col-md-2" v-if="dateRangeStats.data.length">
+                        <button type="button" class="btn btn-outline-secondary btn-sm w-100" @click="clearDateRangeStats">
+                            清除
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 查询结果显示 -->
+                <div v-if="dateRangeStats.data.length" class="mt-2">
+                    <pre class="mb-0 small">{{dateRangeStats.data.join('\n')}}</pre>
                 </div>
             </div>
         </div>
