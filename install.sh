@@ -138,46 +138,52 @@ install_dependencies() {
 detect_network_interface() {
     echo -e "\n${GREEN}检测网络接口...${NC}"
     
-    # 获取所有活动接口
-    ALL_INTERFACES=$(ip -o link show up | grep -v "lo:" | awk -F': ' '{print $2}')
+    # 获取所有活动接口，排除 lo 和 docker/veth 接口
+    PHYSICAL_INTERFACES=$(ip -o link show up | grep -v -E "lo:|veth|docker|br-|cni" | awk -F': ' '{print $2}')
+    
+    # 如果没有找到物理接口，再获取所有接口（包括虚拟接口）
+    if [ -z "$PHYSICAL_INTERFACES" ]; then
+        PHYSICAL_INTERFACES=$(ip -o link show up | grep -v "lo:" | awk -F': ' '{print $2}')
+    fi
     
     # 创建优先级数组
     declare -A INTERFACE_PRIORITY
     
     # 遍历所有接口并设置优先级
-    for interface in $ALL_INTERFACES; do
+    for interface in $PHYSICAL_INTERFACES; do
         # 初始化优先级为0
         priority=0
         
         # eth* 接口优先级最高
         if [[ $interface =~ ^eth[0-9]+ ]]; then
-            priority=100
+            priority=1000
         # ens* 接口次之
         elif [[ $interface =~ ^ens[0-9]+ ]]; then
-            priority=90
+            priority=900
         # en* 接口再次之
         elif [[ $interface =~ ^en[0-9]+ ]]; then
-            priority=80
-        # 虚拟接口优先级最低
-        elif [[ $interface =~ ^veth ]]; then
-            priority=10
-        elif [[ $interface =~ ^docker ]]; then
-            priority=5
+            priority=800
+        # bond* 接口
+        elif [[ $interface =~ ^bond[0-9]+ ]]; then
+            priority=700
+        # 其他物理接口
         else
-            priority=50
+            priority=100
         fi
         
-        # 检查接口是否有流量数据
-        if vnstat -i "$interface" &>/dev/null; then
-            # 获取总流量（接收+发送）
-            traffic=$(vnstat -i "$interface" --oneline | awk -F';' '{print $4 + $5}')
-            # 如果有流量，增加优先级
-            if [ -n "$traffic" ] && [ "$traffic" -gt 0 ]; then
-                priority=$((priority + traffic))
-            fi
+        # 检查接口是否有流量数据并且是否能ping通外网
+        if ping -c 1 -W 1 -I "$interface" 8.8.8.8 >/dev/null 2>&1; then
+            priority=$((priority + 500))
+        fi
+        
+        # 检查接口速率
+        SPEED=$(cat /sys/class/net/$interface/speed 2>/dev/null)
+        if [ ! -z "$SPEED" ] && [ "$SPEED" -gt 0 ]; then
+            priority=$((priority + SPEED))
         fi
         
         INTERFACE_PRIORITY[$interface]=$priority
+        echo -e "${YELLOW}接口 $interface 优先级: $priority${NC}"
     done
     
     # 根据优先级选择接口
@@ -192,9 +198,16 @@ detect_network_interface() {
         fi
     done
     
-    # 如果没有找到合适的接口，使用第一个非lo接口
+    # 如果还是没有找到合适的接口，使用默认接口
     if [ -z "$SELECTED_INTERFACE" ]; then
-        SELECTED_INTERFACE=$(ip -o link show up | grep -v "lo:" | awk -F': ' '{print $2}' | head -n 1)
+        # 尝试找到默认路由接口
+        DEFAULT_ROUTE_INTERFACE=$(ip route | grep default | awk '{print $5}' | head -n 1)
+        if [ ! -z "$DEFAULT_ROUTE_INTERFACE" ]; then
+            SELECTED_INTERFACE=$DEFAULT_ROUTE_INTERFACE
+        else
+            # 如果还是找不到，使用第一个非lo接口
+            SELECTED_INTERFACE=$(ip -o link show up | grep -v "lo:" | awk -F': ' '{print $2}' | head -n 1)
+        fi
     fi
     
     if [ -n "$SELECTED_INTERFACE" ]; then
