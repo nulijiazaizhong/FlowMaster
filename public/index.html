@@ -189,14 +189,14 @@
                     </span>
                 </div>
                 <a href="https://github.com/vbskycn/FlowMaster" target="_blank" class="github-link">
-                    <i class="bi bi-github"></i>
+                    <i class="bi bi-github"></i> GitHub
                 </a>
             </div>
         </div>
     </footer>
 
-    <!-- 添加 Bootstrap Icons -->
-    <link rel="stylesheet" href="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css">
+    <!-- 使用稳定版本的 Bootstrap Icons CDN -->
+    <link href="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/bootstrap-icons/1.8.0/font/bootstrap-icons.min.css" rel="stylesheet">
 
     <!-- 更新页脚样式 -->
     <style>
@@ -242,9 +242,16 @@
 
         .github-link {
             color: #666;
-            font-size: 20px;
+            font-size: 14px;
             text-decoration: none;
             transition: color 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .github-link i {
+            font-size: 18px;
         }
 
         .github-link:hover {
