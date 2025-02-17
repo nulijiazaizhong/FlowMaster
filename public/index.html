@@ -652,10 +652,20 @@
                         this.interfaces = response.data.interfaces.sort((a, b) => {
                             // 定义接口优先级函数
                             const getPriority = (name) => {
+                                // 常见物理网卡接口优先
                                 if (name.startsWith('eth')) return 1;
                                 if (name.startsWith('ens')) return 2;
+                                if (name.startsWith('enp')) return 3;
+                                // 其他常见网卡接口
+                                if (name.startsWith('wlan')) return 10;
+                                if (name.startsWith('bond')) return 11;
+                                if (name.startsWith('br-')) return 12;
+                                // 虚拟和容器接口靠后
                                 if (name.startsWith('docker')) return 100;
-                                if (name.includes('veth') || name.includes('virbr')) return 101;
+                                if (name.includes('veth') || 
+                                    name.includes('virbr') || 
+                                    name.includes('tun') || 
+                                    name.includes('tap')) return 101;
                                 return 50; // 其他接口
                             };
                             
