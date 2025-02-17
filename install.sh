@@ -78,7 +78,20 @@ check_and_install() {
     if ! command -v $1 &> /dev/null; then
         echo -e "${YELLOW}正在安装 $1...${NC}"
         if [ -x "$(command -v apt-get)" ]; then
-            apt-get install -y $1
+            # 首先尝试修复可能的 dpkg 中断问题
+            dpkg --configure -a || true
+            
+            # 更新包列表
+            apt-get update
+            
+            # 尝试安装
+            if ! apt-get install -y $1; then
+                echo -e "${RED}安装 $1 失败，尝试修复依赖关系...${NC}"
+                # 尝试修复依赖关系
+                apt-get -f install -y
+                # 重新尝试安装
+                apt-get install -y $1
+            fi
         elif [ -x "$(command -v yum)" ]; then
             yum install -y $1
         else
@@ -94,25 +107,30 @@ check_and_install() {
 install_dependencies() {
     echo -e "\n${GREEN}[1/6] 检查并安装系统依赖...${NC}"
     
-    # 更新包管理器
+    # 修复可能的包管理器问题
     if [ -x "$(command -v apt-get)" ]; then
+        echo -e "${YELLOW}检查并修复包管理器状态...${NC}"
+        dpkg --configure -a || true
         apt-get update
-    elif [ -x "$(command -v yum)" ]; then
-        yum update -y
+        apt-get -f install -y
     fi
     
     # 检查并安装必要的包
-    check_and_install "curl"
     check_and_install "vnstat"
+    check_and_install "curl"
     check_and_install "nodejs"
     check_and_install "npm"
     check_and_install "bc"
     check_and_install "expect"
     
-    # 启动并启用 vnstat 服务
-    systemctl start vnstat
-    systemctl enable vnstat
-
+    # 确保 vnstat 服务正常运行
+    echo -e "${YELLOW}正在启动 vnstat 服务...${NC}"
+    systemctl start vnstat || true
+    systemctl enable vnstat || true
+    
+    # 等待服务启动
+    sleep 2
+    
     detect_network_interface
 }
 
