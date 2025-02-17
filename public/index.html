@@ -8,6 +8,146 @@
     <script src="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/vue/3.2.31/vue.global.min.js"></script>
     <script src="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/axios/0.26.0/axios.min.js"></script>
     <style>
+        /* 亮色模式基础样式 */
+        :root {
+            --primary-color: #4a90e2;          /* 主题色 */
+            --bg-color: #f5f7fa;               /* 背景色 */
+            --card-bg: #ffffff;                /* 卡片背景 */
+            --text-primary: #2c3e50;           /* 主要文字 */
+            --text-secondary: #606f7b;         /* 次要文字 */
+            --border-color: #e2e8f0;           /* 边框颜色 */
+            --hover-color: #edf2f7;            /* 悬停效果 */
+            --code-bg: #f8fafc;                /* 代码块背景 */
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .card-header {
+            background-color: var(--card-bg);
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+
+        pre {
+            background-color: var(--code-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+        }
+
+        .text-muted {
+            color: var(--text-secondary) !important;
+        }
+
+        /* 暗色模式样式优化 */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary-color: #60a5fa;      /* 亮蓝色 */
+                --bg-color: #1a1f2e;           /* 深蓝黑 */
+                --card-bg: #242b3d;            /* 卡片深色背景 */
+                --text-primary: #e2e8f0;       /* 主要文字 */
+                --text-secondary: #94a3b8;     /* 次要文字 */
+                --border-color: #2d3748;       /* 边框颜色 */
+                --hover-color: #2d3748;        /* 悬停效果 */
+                --code-bg: #1e293b;            /* 代码块背景 */
+            }
+
+            .card {
+                background-color: var(--card-bg);
+                border-color: var(--border-color);
+                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            }
+
+            .form-select, 
+            .form-control {
+                background-color: var(--code-bg);
+                color: var(--text-primary);
+                border-color: var(--border-color);
+            }
+
+            .form-select:focus, 
+            .form-control:focus {
+                background-color: var(--code-bg);
+                color: var(--text-primary);
+                border-color: var(--primary-color);
+                box-shadow: 0 0 0 0.25rem rgba(96, 165, 250, 0.25);
+            }
+
+            .btn-primary {
+                background-color: var(--primary-color);
+                border-color: var(--primary-color);
+            }
+
+            .btn-primary:hover {
+                background-color: #3b82f6;
+                border-color: #3b82f6;
+            }
+
+            .version-badge {
+                background-color: var(--code-bg);
+                color: var(--text-secondary);
+                border-color: var(--border-color);
+            }
+        }
+
+        /* 增强可读性的文字渐变效果 */
+        h1, h5.card-title {
+            background: linear-gradient(45deg, var(--primary-color), #60a5fa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 600;
+        }
+
+        /* 优化卡片内容间距 */
+        .card-body {
+            padding: 1.5rem;
+        }
+
+        /* 美化滚动条 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-color);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary-color);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3b82f6;
+        }
+
+        /* 数据更新动画优化 */
+        @keyframes update-flash {
+            0% { background-color: rgba(74, 144, 226, 0.2); }
+            100% { background-color: transparent; }
+        }
+
+        .data-updated {
+            animation: update-flash 1.5s ease;
+        }
+
         pre {
             background: #f8f9fa;
             padding: 15px;
@@ -109,61 +249,6 @@
         @media (max-width: 576px) {
             .col-md-6 {
                 width: 100%;
-            }
-        }
-
-        /* 添加暗色模式全局样式 */
-        @media (prefers-color-scheme: dark) {
-            body {
-                background-color: #1a1a1a;
-                color: #ffffff;
-            }
-
-            .card {
-                background-color: #2d2d2d;
-                border-color: #3d3d3d;
-            }
-
-            .card-header {
-                background-color: #252525;
-                border-bottom-color: #3d3d3d;
-            }
-
-            pre {
-                background: #252525;
-                color: #ffffff;
-            }
-
-            .text-muted {
-                color: #a0a0a0 !important;
-            }
-
-            .version-badge {
-                background-color: #2d2d2d;
-                border-color: #3d3d3d;
-                color: #a0a0a0;
-            }
-
-            .form-select {
-                background-color: #2d2d2d;
-                color: #ffffff;
-                border-color: #3d3d3d;
-            }
-
-            .form-select:focus {
-                background-color: #2d2d2d;
-                color: #ffffff;
-                border-color: #0d6efd;
-            }
-
-            .form-check-input {
-                background-color: #2d2d2d;
-                border-color: #3d3d3d;
-            }
-
-            .form-check-input:checked {
-                background-color: #0d6efd;
-                border-color: #0d6efd;
             }
         }
 
