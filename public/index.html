@@ -648,7 +648,30 @@
                 async loadInterfaces() {
                     try {
                         const response = await axios.get('/api/interfaces');
-                        this.interfaces = response.data.interfaces;
+                        // 对接口列表进行排序
+                        this.interfaces = response.data.interfaces.sort((a, b) => {
+                            // 定义接口优先级函数
+                            const getPriority = (name) => {
+                                if (name.startsWith('eth')) return 1;
+                                if (name.startsWith('ens')) return 2;
+                                if (name.startsWith('docker')) return 100;
+                                if (name.includes('veth') || name.includes('virbr')) return 101;
+                                return 50; // 其他接口
+                            };
+                            
+                            const priorityA = getPriority(a);
+                            const priorityB = getPriority(b);
+                            
+                            // 首先按优先级排序
+                            if (priorityA !== priorityB) {
+                                return priorityA - priorityB;
+                            }
+                            
+                            // 优先级相同时按字母顺序排序
+                            return a.localeCompare(b);
+                        });
+
+                        // 选择第一个接口作为默认值
                         if (this.interfaces.length > 0) {
                             this.selectedInterface = this.interfaces[0];
                             this.loadAllStats();
