@@ -22,18 +22,53 @@ const translations = {
     'hourly': '每小时',
     'Available interfaces': '可用接口',
     'received': '接收',
-    'transmitted': '发送'
+    'transmitted': '发送',
+    'Sampling': '正在采样',
+    'seconds average': '秒平均值',
+    'packets sampled in': '个数据包采样于',
+    'seconds': '秒',
+    'Traffic average for': '流量平均值 -',
+    'current rate': '当前速率',
+    'bytes': '字节',
+    'packets': '数据包',
+    'packets/s': '包/秒',
+    'bits/s': '比特/秒',
+    'kbit/s': 'kb/秒',
+    'Mbit/s': 'Mb/秒',
+    'Gbit/s': 'Gb/秒',
+    'KiB/s': 'KB/秒',
+    'MiB/s': 'MB/秒',
+    'GiB/s': 'GB/秒',
+    'yesterday': '昨天',
+    'today': '今天',
+    'last 5 minutes': '最近5分钟',
+    'last hour': '最近1小时',
+    'last day': '最近24小时',
+    'last month': '最近30天'
 };
 
 // 翻译函数
 function translateOutput(text) {
     let lines = text.split('\n');
     lines = lines.map(line => {
-        // 替换英文为中文
+        // 特殊处理采样信息
+        if (line.includes('Sampling')) {
+            return line
+                .replace(/Sampling ([^ ]+) \((\d+) seconds average\)/, '正在采样 $1 ($2秒平均值)')
+                .replace(/(\d+) packets sampled in (\d+) seconds/, '$1 个数据包采样于 $2 秒');
+        }
+        
+        // 特殊处理流量平均值
+        if (line.includes('Traffic average for')) {
+            return line.replace(/Traffic average for (.+)/, '流量平均值 - $1');
+        }
+
+        // 替换其他常规文本
         Object.keys(translations).forEach(key => {
             const regex = new RegExp(`\\b${key}\\b`, 'gi');
             line = line.replace(regex, translations[key]);
         });
+
         return line;
     });
     return lines.join('\n');
