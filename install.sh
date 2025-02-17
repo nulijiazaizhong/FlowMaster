@@ -137,10 +137,68 @@ install_dependencies() {
 # 在 install_dependencies 函数中添加以下内容
 detect_network_interface() {
     echo -e "\n${GREEN}检测网络接口...${NC}"
-    ACTIVE_INTERFACE=$(ip -o link show up | grep -v "lo:" | awk -F': ' '{print $2}' | head -n 1)
     
-    if [ -n "$ACTIVE_INTERFACE" ]; then
-        echo -e "${GREEN}检测到网络接口: ${ACTIVE_INTERFACE}${NC}"
+    # 获取所有活动接口
+    ALL_INTERFACES=$(ip -o link show up | grep -v "lo:" | awk -F': ' '{print $2}')
+    
+    # 创建优先级数组
+    declare -A INTERFACE_PRIORITY
+    
+    # 遍历所有接口并设置优先级
+    for interface in $ALL_INTERFACES; do
+        # 初始化优先级为0
+        priority=0
+        
+        # eth* 接口优先级最高
+        if [[ $interface =~ ^eth[0-9]+ ]]; then
+            priority=100
+        # ens* 接口次之
+        elif [[ $interface =~ ^ens[0-9]+ ]]; then
+            priority=90
+        # en* 接口再次之
+        elif [[ $interface =~ ^en[0-9]+ ]]; then
+            priority=80
+        # 虚拟接口优先级最低
+        elif [[ $interface =~ ^veth ]]; then
+            priority=10
+        elif [[ $interface =~ ^docker ]]; then
+            priority=5
+        else
+            priority=50
+        fi
+        
+        # 检查接口是否有流量数据
+        if vnstat -i "$interface" &>/dev/null; then
+            # 获取总流量（接收+发送）
+            traffic=$(vnstat -i "$interface" --oneline | awk -F';' '{print $4 + $5}')
+            # 如果有流量，增加优先级
+            if [ -n "$traffic" ] && [ "$traffic" -gt 0 ]; then
+                priority=$((priority + traffic))
+            fi
+        fi
+        
+        INTERFACE_PRIORITY[$interface]=$priority
+    done
+    
+    # 根据优先级选择接口
+    SELECTED_INTERFACE=""
+    HIGHEST_PRIORITY=0
+    
+    for interface in "${!INTERFACE_PRIORITY[@]}"; do
+        priority=${INTERFACE_PRIORITY[$interface]}
+        if [ $priority -gt $HIGHEST_PRIORITY ]; then
+            HIGHEST_PRIORITY=$priority
+            SELECTED_INTERFACE=$interface
+        fi
+    done
+    
+    # 如果没有找到合适的接口，使用第一个非lo接口
+    if [ -z "$SELECTED_INTERFACE" ]; then
+        SELECTED_INTERFACE=$(ip -o link show up | grep -v "lo:" | awk -F': ' '{print $2}' | head -n 1)
+    fi
+    
+    if [ -n "$SELECTED_INTERFACE" ]; then
+        echo -e "${GREEN}检测到网络接口: ${SELECTED_INTERFACE}${NC}"
         
         # 停止 vnstat 服务
         systemctl stop vnstat
@@ -153,13 +211,12 @@ detect_network_interface() {
         echo -e "${GREEN}检测到 vnstat 版本: ${VNSTAT_VERSION}${NC}"
         
         # 初始化数据库
-        if vnstat --add -i "$ACTIVE_INTERFACE" &>/dev/null; then
+        if vnstat --add -i "$SELECTED_INTERFACE" &>/dev/null; then
             echo -e "${GREEN}使用新版本命令初始化接口${NC}"
-        elif vnstat -u -i "$ACTIVE_INTERFACE" &>/dev/null; then
+        elif vnstat -u -i "$SELECTED_INTERFACE" &>/dev/null; then
             echo -e "${GREEN}使用旧版本命令初始化接口${NC}"
         else
             echo -e "${GREEN}尝试直接创建接口${NC}"
-            # 某些版本可能不需要显式初始化
             systemctl restart vnstat
         fi
         
@@ -173,8 +230,8 @@ detect_network_interface() {
             sed -i 's/^SaveInterval.*/SaveInterval 60/' /etc/vnstat.conf
             
             # 确保接口在配置文件中
-            if ! grep -q "^Interface \"$ACTIVE_INTERFACE\"" /etc/vnstat.conf; then
-                echo "Interface \"$ACTIVE_INTERFACE\"" >> /etc/vnstat.conf
+            if ! grep -q "^Interface \"$SELECTED_INTERFACE\"" /etc/vnstat.conf; then
+                echo "Interface \"$SELECTED_INTERFACE\"" >> /etc/vnstat.conf
             fi
             
             echo -e "${GREEN}已更新配置文件${NC}"
@@ -188,8 +245,8 @@ detect_network_interface() {
         sleep 60
         
         # 验证接口是否正常工作
-        if vnstat -i "$ACTIVE_INTERFACE" &>/dev/null; then
-            echo -e "${GREEN}接口 $ACTIVE_INTERFACE 已成功初始化${NC}"
+        if vnstat -i "$SELECTED_INTERFACE" &>/dev/null; then
+            echo -e "${GREEN}接口 ${SELECTED_INTERFACE} 已成功初始化${NC}"
         else
             echo -e "${RED}警告：接口初始化可能不完整，但这不影响继续安装${NC}"
         fi
