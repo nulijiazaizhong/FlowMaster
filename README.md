@@ -2,7 +2,7 @@
 
 [![license](https://img.shields.io/github/license/vbskycn/FlowMaster)](https://github.com/vbskycn/FlowMaster/blob/main/LICENSE)[![stars](https://img.shields.io/github/stars/vbskycn/FlowMaster)](https://github.com/vbskycn/FlowMaster/stargazers)[![issues](https://img.shields.io/github/issues/vbskycn/FlowMaster)](https://github.com/vbskycn/FlowMaster/issues)
 
-![614da06e-5310-4145-bb1f-2254fbcf1147](assets/614da06e-5310-4145-bb1f-2254fbcf1147.jpg)
+![FlowMaster - 专业的网络流量实时监控系统](assets/FlowMaster.jpg)
 
 ## 📝 项目介绍
 
@@ -43,11 +43,13 @@ FlowMaster 是一个基于 vnstat 的专业网络流量监控系统，提供实�
 curl -o install.sh https://raw.githubusercontent.com/vbskycn/FlowMaster/main/install.sh && chmod +x install.sh && sudo ./install.sh
 ```
 
+国内机器
+
 ```
 curl -o install.sh https://gh-proxy.com/https://raw.githubusercontent.com/vbskycn/FlowMaster/main/install.sh && chmod +x install.sh && sudo ./install.sh
 ```
 
-
+如果一键安装失败建议使用手动pm2部署，可以看到是哪一步出了问题
 
 ### 常用命令
 
@@ -154,6 +156,16 @@ pm2 monit
 ```
 
 默认访问地址：`http://localhost:10089`
+
+#### 7.更新脚本
+
+```
+cd FlowMaster #进入脚本目录
+git pull #更新仓库
+pm2 restart flowmaster进程 #重进flowmaster进程
+```
+
+
 
 ### 🔧 配置说明
 
