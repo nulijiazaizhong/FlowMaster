@@ -1,4 +1,4 @@
-# FlowMaster - 专业的网络流量监控系统
+# FlowMaster - 开源的专业的网络流量监控系统
 
 [![license](https://img.shields.io/github/license/vbskycn/FlowMaster)](https://github.com/vbskycn/FlowMaster/blob/main/LICENSE)[![stars](https://img.shields.io/github/stars/vbskycn/FlowMaster)](https://github.com/vbskycn/FlowMaster/stargazers)[![issues](https://img.shields.io/github/issues/vbskycn/FlowMaster)](https://github.com/vbskycn/FlowMaster/issues)
 
