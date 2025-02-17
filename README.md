@@ -43,6 +43,12 @@ FlowMaster 是一个基于 vnstat 的专业网络流量监控系统，提供实�
 curl -o install.sh https://raw.githubusercontent.com/vbskycn/FlowMaster/main/install.sh && chmod +x install.sh && sudo ./install.sh
 ```
 
+```
+curl -o install.sh https://gh-proxy.com/https://raw.githubusercontent.com/vbskycn/FlowMaster/main/install.sh && chmod +x install.sh && sudo ./install.sh
+```
+
+
+
 ### 常用命令
 
 启动服务:

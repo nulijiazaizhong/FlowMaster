@@ -300,24 +300,54 @@ update_flowmaster() {
     # 1. 停止当前运行的服务
     pm2 stop flowmaster 2>/dev/null || true
     
-    # 2. 备份现有配置文件
+    # 2. 创建临时目录用于更新
+    TMP_DIR=$(mktemp -d)
+    cd "$TMP_DIR"
+    
+    # 3. 下载最新代码到临时目录
+    echo -e "${YELLOW}下载最新代码...${NC}"
+    curl -L https://github.com/vbskycn/FlowMaster/archive/main.tar.gz | tar xz --strip-components=1
+    
+    # 4. 备份重要文件
+    echo -e "${YELLOW}备份配置文件...${NC}"
     if [ -f "/opt/flowmaster/config.js" ]; then
-        cp /opt/flowmaster/config.js /opt/flowmaster/config.js.bak
+        cp /opt/flowmaster/config.js "$TMP_DIR/config.js.bak"
     fi
     
-    # 3. 更新代码
+    # 5. 保留vnstat数据库
+    echo -e "${YELLOW}保留vnstat数据...${NC}"
+    if [ -d "/opt/flowmaster/vnstat" ]; then
+        cp -r /opt/flowmaster/vnstat "$TMP_DIR/vnstat.bak"
+    fi
+    
+    # 6. 更新文件
+    echo -e "${YELLOW}更新文件...${NC}"
+    # 删除旧文件，但保留vnstat目录
+    find /opt/flowmaster -mindepth 1 ! -name 'vnstat' ! -path '/opt/flowmaster/vnstat/*' -delete
+    
+    # 复制新文件，排除vnstat目录
+    cp -r "$TMP_DIR"/* /opt/flowmaster/ 2>/dev/null || true
+    
+    # 7. 恢复备份的文件
+    echo -e "${YELLOW}恢复配置文件...${NC}"
+    if [ -f "$TMP_DIR/config.js.bak" ]; then
+        mv "$TMP_DIR/config.js.bak" /opt/flowmaster/config.js
+    fi
+    if [ -d "$TMP_DIR/vnstat.bak" ]; then
+        rm -rf /opt/flowmaster/vnstat
+        mv "$TMP_DIR/vnstat.bak" /opt/flowmaster/vnstat
+    fi
+    
+    # 8. 清理临时目录
+    rm -rf "$TMP_DIR"
+    
+    # 9. 更新依赖
     cd /opt/flowmaster
-    curl -L https://github.com/vbskycn/FlowMaster/archive/main.tar.gz | tar xz --strip-components=1 --exclude='vnstat'
-    
-    # 4. 恢复配置文件
-    if [ -f "/opt/flowmaster/config.js.bak" ]; then
-        mv /opt/flowmaster/config.js.bak /opt/flowmaster/config.js
-    fi
-    
-    # 5. 更新项目依赖
+    echo -e "${YELLOW}更新项目依赖...${NC}"
     npm install
     
-    # 6. 重启服务
+    # 10. 重启服务
+    echo -e "${YELLOW}重启服务...${NC}"
     pm2 restart flowmaster
     pm2 save
     
