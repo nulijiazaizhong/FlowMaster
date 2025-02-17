@@ -184,6 +184,9 @@
                 <div class="footer-brand">
                     <span class="footer-text">FlowMaster</span>
                     <span class="version-badge ms-2" v-cloak>v{{version}}</span>
+                    <span class="copyright-text ms-3">© 2025 by 
+                        <a href="https://github.com/vbskycn" target="_blank" class="author-link">vbskycn</a>
+                    </span>
                 </div>
                 <a href="https://github.com/vbskycn/FlowMaster" target="_blank" class="github-link">
                     <i class="bi bi-github"></i>
@@ -221,6 +224,22 @@
             font-weight: 500;
         }
 
+        .copyright-text {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .author-link {
+            color: #666;
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        .author-link:hover {
+            color: #333;
+            text-decoration: underline;
+        }
+
         .github-link {
             color: #666;
             font-size: 20px;
@@ -239,14 +258,13 @@
                 border-top-color: #2d2d2d;
             }
 
-            .footer-text {
+            .footer-text,
+            .copyright-text,
+            .author-link {
                 color: #a0a0a0;
             }
 
-            .github-link {
-                color: #a0a0a0;
-            }
-
+            .author-link:hover,
             .github-link:hover {
                 color: #ffffff;
             }
@@ -259,8 +277,19 @@
             }
             
             .footer-content {
-                justify-content: center;
-                gap: 15px;
+                flex-direction: column;
+                align-items: center;
+                gap: 10px;
+                text-align: center;
+            }
+
+            .footer-brand {
+                flex-direction: column;
+                gap: 5px;
+            }
+
+            .copyright-text {
+                margin-left: 0 !important;
             }
         }
     </style>
