@@ -13,6 +13,8 @@
             padding: 15px;
             border-radius: 5px;
             white-space: pre-wrap;
+            font-size: 14px;  /* 基础字体大小 */
+            overflow-x: auto; /* 添加横向滚动 */
         }
         .loading {
             opacity: 0.5;
@@ -37,6 +39,64 @@
             font-size: 0.75em;
             font-weight: 500;
             border-radius: 0.25rem;
+        }
+
+        /* 响应式设计调整 */
+        @media (max-width: 768px) {
+            .container {
+                padding-left: 15px;
+                padding-right: 15px;
+            }
+            
+            h1 {
+                font-size: 1.75rem; /* 移动端标题字体调小 */
+            }
+            
+            pre {
+                font-size: 12px; /* 移动端代码区域字体调小 */
+                padding: 10px;
+            }
+            
+            .card {
+                margin-bottom: 15px;
+            }
+            
+            .footer {
+                padding: 1rem 0;
+            }
+            
+            .footer-links {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 10px;
+            }
+            
+            .footer-separator {
+                display: none; /* 移动端隐藏分隔符 */
+            }
+            
+            .footer-link {
+                margin: 5px 0;
+            }
+        }
+
+        /* 平板设备优化 */
+        @media (min-width: 769px) and (max-width: 1024px) {
+            pre {
+                font-size: 13px;
+            }
+            
+            .card {
+                margin-bottom: 20px;
+            }
+        }
+
+        /* 确保在不同设备上的卡片布局 */
+        @media (max-width: 576px) {
+            .col-md-6 {
+                width: 100%;
+            }
         }
     </style>
 </head>
@@ -214,15 +274,50 @@
             color: var(--accent-color);
         }
 
-        /* 确保页脚始终在底部 */
-        body {
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
+        /* 响应式布局优化 */
+        @media (max-width: 768px) {
+            .footer-links {
+                text-align: center;
+            }
+            
+            .footer-copyright {
+                text-align: center;
+                margin-top: 1rem;
+            }
+            
+            .col-md-6.text-md-end {
+                text-align: center !important;
+            }
+            
+            .d-flex.align-items-center.mb-3 {
+                justify-content: center;
+            }
         }
 
-        #app {
-            flex: 1;
+        /* 暗色模式支持 */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --secondary-bg: #1a1a1a;
+                --text-primary: #ffffff;
+                --text-secondary: #a0a0a0;
+                --border-color: #2d2d2d;
+                --accent-color: #0d6efd;
+            }
+            
+            pre {
+                background: #2d2d2d;
+                color: #ffffff;
+            }
+            
+            .card {
+                background-color: #2d2d2d;
+                border-color: #3d3d3d;
+            }
+            
+            .card-header {
+                background-color: #252525;
+                border-bottom-color: #3d3d3d;
+            }
         }
     </style>
 
