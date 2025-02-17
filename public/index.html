@@ -28,13 +28,23 @@
         .refresh-control {
             margin-bottom: 15px;
         }
+        /* 修改版本号标签样式 */
+        .version-badge {
+            background-color: #f8f9fa;     /* 浅灰色背景 */
+            color: #6c757d;                /* 深灰色文字 */
+            border: 1px solid #dee2e6;     /* 浅色边框 */
+            padding: 0.35em 0.65em;
+            font-size: 0.75em;
+            font-weight: 500;
+            border-radius: 0.25rem;
+        }
     </style>
 </head>
 <body>
     <div id="app" class="container py-4">
         <div class="d-flex align-items-center mb-4">
-            <h1 class="mb-0">FlowMaster 流量监控v</h1>
-            <span class="badge bg-accent ms-3" v-cloak>v{{version}}</span>
+            <h1 class="mb-0">FlowMaster 流量监控</h1>
+            <span class="version-badge ms-3" v-cloak>v{{version}}</span>
         </div>
         <p class="text-muted mb-4">专业的网络流量实时监控系统</p>
         
@@ -117,7 +127,7 @@
                 <div class="col-md-6">
                     <div class="d-flex align-items-center mb-3">
                         <h5 class="footer-title me-3 mb-0">FlowMaster</h5>
-                        <span class="badge bg-accent" v-cloak>v{{version}}</span>
+                        <span class="version-badge" v-cloak>v{{version}}</span>
                     </div>
                     <p class="footer-description">
                         专业的网络流量实时监控系统，基于 vnstat 开发
