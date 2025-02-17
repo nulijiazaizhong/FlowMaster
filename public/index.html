@@ -3,7 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlowMaster | 流量监控</title>
+    
+    <!-- SEO Meta 标签 -->
+    <title>FlowMaster | 专业的网络流量实时监控系统</title>
+    <meta name="description" content="FlowMaster是一款专业的网络流量监控系统，提供实时流量统计、历史数据查询、多接口支持等功能，帮助您更好地管理和分析网络流量。">
+    <meta name="keywords" content="FlowMaster,流量监控,网络监控,流量统计,网络流量分析,实时监控">
+    <meta name="author" content="vbskycn">
+    
+    <!-- Open Graph Meta 标签 (用于社交媒体分享) -->
+    <meta property="og:title" content="FlowMaster | 专业的网络流量实时监控系统">
+    <meta property="og:description" content="专业的网络流量监控系统，提供实时流量统计、历史数据查询、多接口支持等功能。">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://github.com/vbskycn/FlowMaster">
+    
+    <!-- Twitter Card Meta 标签 -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="FlowMaster | 专业的网络流量实时监控系统">
+    <meta name="twitter:description" content="专业的网络流量监控系统，提供实时流量统计、历史数据查询、多接口支持等功能。">
+    
+    <!-- 移动设备优化 -->
+    <meta name="theme-color" content="#4a90e2">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    
+    <!-- 搜索引擎指令 -->
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://github.com/vbskycn/FlowMaster">
+
+    <!-- 结构化数据 (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+        "@context": "http://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "FlowMaster",
+        "description": "专业的网络流量实时监控系统，提供实时流量统计、历史数据查询、多接口支持等功能。",
+        "applicationCategory": "NetworkMonitoringTool",
+        "operatingSystem": "All",
+        "author": {
+            "@type": "Person",
+            "name": "vbskycn",
+            "url": "https://github.com/vbskycn"
+        },
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+        }
+    }
+    </script>
+
     <link href="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/twitter-bootstrap/5.1.3/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/vue/3.2.31/vue.global.min.js"></script>
     <script src="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/axios/0.26.0/axios.min.js"></script>
@@ -324,112 +372,117 @@
     </style>
 </head>
 <body>
-    <div id="app" class="container py-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <div class="d-flex align-items-center">
-                <h1 class="mb-0">FlowMaster 流量监控</h1>
-                <span class="version-badge ms-3" v-cloak>v{{version}}</span>
-            </div>
-            <div class="refresh-control text-end">
-                <div class="form-check form-switch d-inline-block">
-                    <input class="form-check-input" type="checkbox" v-model="autoRefresh" id="autoRefreshSwitch">
-                    <label class="form-check-label" for="autoRefreshSwitch">
-                        自动刷新
-                    </label>
+    <header class="container py-4">
+        <div id="app">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="d-flex align-items-center">
+                    <h1 class="mb-0">FlowMaster 流量监控</h1>
+                    <span class="version-badge ms-3" v-cloak>v{{version}}</span>
                 </div>
-                <div class="update-time" v-if="lastUpdateTime">
-                    最后更新: {{lastUpdateTime}}
+                <div class="refresh-control text-end">
+                    <div class="form-check form-switch d-inline-block">
+                        <input class="form-check-input" type="checkbox" v-model="autoRefresh" id="autoRefreshSwitch">
+                        <label class="form-check-label" for="autoRefreshSwitch">
+                            自动刷新
+                        </label>
+                    </div>
+                    <div class="update-time" v-if="lastUpdateTime">
+                        最后更新: {{lastUpdateTime}}
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="error" class="alert alert-danger" v-cloak>
+                {{error}}
+            </div>
+
+            <div class="row align-items-center mb-3">
+                <div class="col-md-4">
+                    <select v-model="selectedInterface" class="form-select" @change="loadAllStats" v-cloak>
+                        <option v-for="interface in interfaces" :key="interface" :value="interface">
+                            {{interface}}
+                        </option>
+                    </select>
+                </div>
+                <div class="col-md-8">
+                    <p class="text-muted mb-0 mt-2 mt-md-0" v-cloak>
+                        当前选择的网络接口: {{selectedInterface}}
+                    </p>
+                </div>
+            </div>
+
+            <div class="card mb-3" v-cloak>
+                <div class="card-body py-2">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-3">
+                            <label for="startDate" class="form-label small mb-1">开始日期</label>
+                            <input type="date" class="form-control form-control-sm" id="startDate" v-model="dateRange.start">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="endDate" class="form-label small mb-1">结束日期</label>
+                            <input type="date" class="form-control form-control-sm" id="endDate" v-model="dateRange.end">
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-primary btn-sm w-100" @click="queryDateRange" :disabled="!isDateRangeValid">
+                                查询
+                            </button>
+                        </div>
+                        <div class="col-md-2" v-if="dateRangeStats.data.length">
+                            <button type="button" class="btn btn-outline-secondary btn-sm w-100" @click="clearDateRangeStats">
+                                清除
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 查询结果显示 -->
+                    <div v-if="dateRangeStats.data.length" class="mt-2">
+                        <pre class="mb-0 small">{{dateRangeStats.data.join('\n')}}</pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row" v-cloak>
+                <div class="col-md-12 mb-4">
+                    <div class="card" :class="{ loading: realtimeStats.loading }">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">实时统计</h5>
+                        </div>
+                        <div class="card-body">
+                            <pre>{{realtimeStats.data.join('\n')}}</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-12 mb-4">
+                    <div class="card" :class="{ loading: minuteStats.loading }">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">分钟统计</h5>
+                        </div>
+                        <div class="card-body">
+                            <pre>{{minuteStats.data.join('\n')}}</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6 mb-4" v-for="(stat, index) in stats" :key="index">
+                    <div class="card" :class="{ loading: stat.loading }">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">{{stat.title}}</h5>
+                        </div>
+                        <div class="card-body">
+                            <pre>{{stat.data.join('\n')}}</pre>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
+    </header>
 
-        <div v-if="error" class="alert alert-danger" v-cloak>
-            {{error}}
-        </div>
+    <main role="main">
+        <!-- ... 原有的主要内容 ... -->
+    </main>
 
-        <div class="row align-items-center mb-3">
-            <div class="col-md-4">
-                <select v-model="selectedInterface" class="form-select" @change="loadAllStats" v-cloak>
-                    <option v-for="interface in interfaces" :key="interface" :value="interface">
-                        {{interface}}
-                    </option>
-                </select>
-            </div>
-            <div class="col-md-8">
-                <p class="text-muted mb-0 mt-2 mt-md-0" v-cloak>
-                    当前选择的网络接口: {{selectedInterface}}
-                </p>
-            </div>
-        </div>
-
-        <div class="card mb-3" v-cloak>
-            <div class="card-body py-2">
-                <div class="row g-2 align-items-end">
-                    <div class="col-md-3">
-                        <label for="startDate" class="form-label small mb-1">开始日期</label>
-                        <input type="date" class="form-control form-control-sm" id="startDate" v-model="dateRange.start">
-                    </div>
-                    <div class="col-md-3">
-                        <label for="endDate" class="form-label small mb-1">结束日期</label>
-                        <input type="date" class="form-control form-control-sm" id="endDate" v-model="dateRange.end">
-                    </div>
-                    <div class="col-md-2">
-                        <button type="button" class="btn btn-primary btn-sm w-100" @click="queryDateRange" :disabled="!isDateRangeValid">
-                            查询
-                        </button>
-                    </div>
-                    <div class="col-md-2" v-if="dateRangeStats.data.length">
-                        <button type="button" class="btn btn-outline-secondary btn-sm w-100" @click="clearDateRangeStats">
-                            清除
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- 查询结果显示 -->
-                <div v-if="dateRangeStats.data.length" class="mt-2">
-                    <pre class="mb-0 small">{{dateRangeStats.data.join('\n')}}</pre>
-                </div>
-            </div>
-        </div>
-
-        <div class="row" v-cloak>
-            <div class="col-md-12 mb-4">
-                <div class="card" :class="{ loading: realtimeStats.loading }">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">实时统计</h5>
-                    </div>
-                    <div class="card-body">
-                        <pre>{{realtimeStats.data.join('\n')}}</pre>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-12 mb-4">
-                <div class="card" :class="{ loading: minuteStats.loading }">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">分钟统计</h5>
-                    </div>
-                    <div class="card-body">
-                        <pre>{{minuteStats.data.join('\n')}}</pre>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-6 mb-4" v-for="(stat, index) in stats" :key="index">
-                <div class="card" :class="{ loading: stat.loading }">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">{{stat.title}}</h5>
-                    </div>
-                    <div class="card-body">
-                        <pre>{{stat.data.join('\n')}}</pre>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 修改页脚部分 -->
-    <footer class="footer">
+    <footer class="footer" role="contentinfo">
         <div class="container">
             <div class="footer-content">
                 <div class="footer-brand">
