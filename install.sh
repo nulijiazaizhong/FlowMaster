@@ -277,7 +277,7 @@ install_flowmaster() {
     
     # 下载项目文件
     echo -e "${YELLOW}下载项目文件...${NC}"
-    curl -L https://github.com/vbskycn/FlowMaster/archive/main.tar.gz | tar xz --strip-components=1
+    curl -L https://github.zhoujie218.top/https://github.com/vbskycn/FlowMaster/archive/main.tar.gz | tar xz --strip-components=1
     
     # 安装依赖
     echo -e "${YELLOW}安装项目依赖...${NC}"
@@ -381,7 +381,7 @@ update_flowmaster() {
     
     # 3. 下载最新代码到临时目录
     echo -e "${YELLOW}下载最新代码...${NC}"
-    curl -L https://github.com/vbskycn/FlowMaster/archive/main.tar.gz | tar xz --strip-components=1
+    curl -L https://github.zhoujie218.top/https://github.com/vbskycn/FlowMaster/archive/main.tar.gz | tar xz --strip-components=1
     
     # 4. 备份重要文件
     echo -e "${YELLOW}备份配置文件...${NC}"
