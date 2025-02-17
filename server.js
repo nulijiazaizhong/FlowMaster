@@ -264,6 +264,34 @@ app.get('/api/stats/:interface/:period', (req, res) => {
     });
 });
 
+// 添加日期范围查询API
+app.get('/api/stats/:interface/range/:startDate/:endDate', (req, res) => {
+    const { interface, startDate, endDate } = req.params;
+    
+    if (!interface.match(/^[a-zA-Z0-9]+[a-zA-Z0-9:._-]*$/)) {
+        return res.status(400).json({ error: '无效的接口名称' });
+    }
+
+    // 验证日期格式 (YYYY-MM-DD)
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
+        return res.status(400).json({ error: '无效的日期格式' });
+    }
+
+    const cmd = `vnstat -i ${interface} --begin ${startDate} --end ${endDate} -d`;
+    
+    exec(cmd, (error, stdout, stderr) => {
+        if (error) {
+            return res.status(500).json({ error: error.message });
+        }
+
+        let translatedOutput = translateOutput(stdout);
+        let lines = translatedOutput.split('\n');
+
+        res.json({ data: lines });
+    });
+});
+
 // 添加获取版本号的路由
 app.get('/api/version', (req, res) => {
     res.json({ version: packageJson.version });
