@@ -32,7 +32,10 @@
 </head>
 <body>
     <div id="app" class="container py-4">
-        <h1 class="mb-4">FlowMaster 流量监控</h1>
+        <div class="d-flex align-items-center mb-4">
+            <h1 class="mb-0">FlowMaster 流量监控</h1>
+            <span class="badge bg-accent ms-3" v-cloak>v{{version}}</span>
+        </div>
         <p class="text-muted mb-4">专业的网络流量实时监控系统</p>
         
         <div v-if="error" class="alert alert-danger" v-cloak>
