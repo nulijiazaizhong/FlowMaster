@@ -44,7 +44,7 @@ curl -o install.sh https://raw.githubusercontent.com/vbskycn/FlowMaster/main/ins
 ```
 
 国内机器
-
+不行自己换加速地址
 ```
 curl -o install.sh https://gh-proxy.com/https://raw.githubusercontent.com/vbskycn/FlowMaster/main/install.sh && chmod +x install.sh && sudo ./install.sh
 ```
