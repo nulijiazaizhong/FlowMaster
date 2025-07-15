@@ -59,6 +59,7 @@
     <link href="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/twitter-bootstrap/5.1.3/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/vue/3.2.31/vue.global.min.js"></script>
     <script src="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/axios/0.26.0/axios.min.js"></script>
+    <script src="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/Chart.js/3.7.1/chart.min.js"></script>
     <style>
         pre {
             background: #f8f9fa;
@@ -169,6 +170,14 @@
             body {
                 background-color: #1a1a1a;
                 color: #ffffff;
+            }
+
+            .table {
+                color: #ffffff;
+            }
+
+            .table-sm > :not(caption) > * > * {
+                background-color: #2d2d2d;
             }
 
             .card {
@@ -384,6 +393,12 @@
                     <span class="version-badge ms-3" v-cloak>v{{version}}</span>
                 </div>
                 <div class="refresh-control text-end">
+                    <div class="form-check form-switch d-inline-block me-3">
+                        <input class="form-check-input" type="checkbox" v-model="showRealtimeStats" id="showRealtimeStatsSwitch">
+                        <label class="form-check-label" for="showRealtimeStatsSwitch">
+                            显示实时统计
+                        </label>
+                    </div>
                     <div class="form-check form-switch d-inline-block">
                         <input class="form-check-input" type="checkbox" v-model="autoRefresh" id="autoRefreshSwitch">
                         <label class="form-check-label" for="autoRefreshSwitch">
@@ -446,13 +461,15 @@
             </div>
 
             <div class="row" v-cloak>
-                <div class="col-md-12 mb-4">
+                <div class="col-md-12 mb-4" v-if="showRealtimeStats">
                     <div class="card" :class="{ loading: realtimeStats.loading }">
                         <div class="card-header">
                             <h5 class="card-title mb-0">实时统计</h5>
                         </div>
                         <div class="card-body">
-                            <pre>{{realtimeStats.data.join('\n')}}</pre>
+                            <div v-if="realtimeStats.loading" class="text-center">加载中...</div>
+                            <pre v-else-if="realtimeStats.data.length > 0">{{ realtimeStats.data.join('\n') }}</pre>
+                            <div v-else class="text-center">没有数据</div>
                         </div>
                     </div>
                 </div>
@@ -463,7 +480,8 @@
                             <h5 class="card-title mb-0">分钟统计</h5>
                         </div>
                         <div class="card-body">
-                            <pre>{{minuteStats.data.join('\n')}}</pre>
+                            <div style="height: 250px;"><canvas :id="'minuteChart'"></canvas></div>
+                            <table class="table table-sm"><thead><tr><th>时间</th><th>接收</th><th>发送</th><th>总计</th></tr></thead><tbody><tr v-for="row in minuteStats.tableData"><td>{{row.time}}</td><td>{{row.rx}}</td><td>{{row.tx}}</td><td>{{row.total}}</td></tr></tbody></table>
                         </div>
                     </div>
                 </div>
@@ -474,7 +492,8 @@
                             <h5 class="card-title mb-0">{{stat.title}}</h5>
                         </div>
                         <div class="card-body">
-                            <pre>{{stat.data.join('\n')}}</pre>
+                            <div style="height: 250px;"><canvas :id="'chart-' + stat.period"></canvas></div>
+                            <table class="table table-sm"><thead><tr><th>时间</th><th>接收</th><th>发送</th><th>总计</th></tr></thead><tbody><tr v-for="row in stat.tableData"><td>{{row.time}}</td><td>{{row.rx}}</td><td>{{row.tx}}</td><td>{{row.total}}</td></tr></tbody></table>
                         </div>
                     </div>
                 </div>
@@ -617,14 +636,15 @@
                     selectedInterface: 'eth0',
                     error: null,
                     realtimeStats: { data: [], loading: false },
-                    minuteStats: { data: [], loading: false },
+                    minuteStats: { data: [], loading: false, tableData: [] },
                     stats: [
-                        { period: 'h', title: '小时统计', data: [], loading: false },
-                        { period: 'd', title: '日统计', data: [], loading: false },
-                        { period: 'm', title: '月统计', data: [], loading: false },
-                        { period: 'y', title: '年统计', data: [], loading: false }
+                        { period: 'h', title: '小时统计', data: [], loading: false, tableData: [] },
+                        { period: 'd', title: '日统计', data: [], loading: false, tableData: [] },
+                        { period: 'm', title: '月统计', data: [], loading: false, tableData: [] },
+                        { period: 'y', title: '年统计', data: [], loading: false, tableData: [] }
                     ],
                     autoRefresh: true,
+                    showRealtimeStats: false,
                     refreshInterval: null,
                     lastUpdateTime: '',
                     version: '',
@@ -638,6 +658,9 @@
                     }
                 }
             },
+            created() {
+                this.charts = {};
+            },
             computed: {
                 isDateRangeValid() {
                     return this.dateRange.start && this.dateRange.end && 
@@ -648,40 +671,25 @@
                 async loadInterfaces() {
                     try {
                         const response = await axios.get('/api/interfaces');
-                        // 对接口列表进行排序
                         this.interfaces = response.data.interfaces.sort((a, b) => {
-                            // 定义接口优先级函数
                             const getPriority = (name) => {
-                                // 常见物理网卡接口优先
                                 if (name.startsWith('eth')) return 1;
                                 if (name.startsWith('ens')) return 2;
                                 if (name.startsWith('enp')) return 3;
-                                // 其他常见网卡接口
                                 if (name.startsWith('wlan')) return 10;
                                 if (name.startsWith('bond')) return 11;
                                 if (name.startsWith('br-')) return 12;
-                                // 虚拟和容器接口靠后
                                 if (name.startsWith('docker')) return 100;
-                                if (name.includes('veth') || 
-                                    name.includes('virbr') || 
-                                    name.includes('tun') || 
-                                    name.includes('tap')) return 101;
-                                return 50; // 其他接口
+                                if (name.includes('veth') || name.includes('virbr') || name.includes('tun') || name.includes('tap')) return 101;
+                                return 50;
                             };
-                            
                             const priorityA = getPriority(a);
                             const priorityB = getPriority(b);
-                            
-                            // 首先按优先级排序
                             if (priorityA !== priorityB) {
                                 return priorityA - priorityB;
                             }
-                            
-                            // 优先级相同时按字母顺序排序
                             return a.localeCompare(b);
                         });
-
-                        // 选择第一个接口作为默认值
                         if (this.interfaces.length > 0) {
                             this.selectedInterface = this.interfaces[0];
                             this.loadAllStats();
@@ -695,12 +703,18 @@
                     try {
                         const response = await axios.get(`/api/stats/${this.selectedInterface}/${stat.period}`);
                         stat.data = response.data.data;
+                        stat.tableData = this.parseTableData(stat.data);
+                        this.renderChart('chart-' + stat.period, stat.data);
                     } catch (error) {
                         stat.data = ['错误: ' + (error.response?.data?.error || error.message)];
                     }
                     stat.loading = false;
                 },
                 async loadRealtimeStats() {
+                    if (!this.showRealtimeStats) {
+                        this.realtimeStats.data = [];
+                        return;
+                    }
                     this.realtimeStats.loading = true;
                     try {
                         const response = await axios.get(`/api/stats/${this.selectedInterface}/l`);
@@ -715,12 +729,15 @@
                     try {
                         const response = await axios.get(`/api/stats/${this.selectedInterface}/5`);
                         this.minuteStats.data = response.data.data.filter(line => line.trim());
+                        this.minuteStats.tableData = this.parseTableData(this.minuteStats.data);
+                        this.renderChart('minuteChart', this.minuteStats.data);
                     } catch (error) {
                         this.minuteStats.data = ['错误: ' + (error.response?.data?.error || error.message)];
                     }
                     this.minuteStats.loading = false;
                 },
                 loadAllStats() {
+                    this.realtimeStats.data = []; // Clear old data
                     this.loadRealtimeStats();
                     this.loadMinuteStats();
                     this.stats.forEach(stat => this.loadStats(stat));
@@ -731,22 +748,12 @@
                     this.lastUpdateTime = now.toLocaleTimeString();
                 },
                 startAutoRefresh() {
-                    if (this.refreshInterval) {
-                        clearInterval(this.refreshInterval);
-                    }
+                    if (this.refreshInterval) clearInterval(this.refreshInterval);
                     if (this.autoRefresh) {
                         this.refreshInterval = setInterval(() => {
                             this.loadRealtimeStats();
                             this.updateLastUpdateTime();
                         }, 1000);
-
-                        setInterval(() => {
-                            this.loadMinuteStats();
-                        }, 5000);
-
-                        setInterval(() => {
-                            this.stats.forEach(stat => this.loadStats(stat));
-                        }, 60000);
                     }
                 },
                 async loadVersion() {
@@ -759,12 +766,9 @@
                 },
                 async queryDateRange() {
                     if (!this.isDateRangeValid) return;
-                    
                     this.dateRangeStats.loading = true;
                     try {
-                        const response = await axios.get(
-                            `/api/stats/${this.selectedInterface}/range/${this.dateRange.start}/${this.dateRange.end}`
-                        );
+                        const response = await axios.get(`/api/stats/${this.selectedInterface}/range/${this.dateRange.start}/${this.dateRange.end}`);
                         this.dateRangeStats.data = response.data.data;
                     } catch (error) {
                         this.error = '查询失败: ' + (error.response?.data?.error || error.message);
@@ -775,7 +779,108 @@
                     this.dateRangeStats.data = [];
                     this.dateRange.start = '';
                     this.dateRange.end = '';
-                }
+                },
+                renderChart(chartId, data, isRealtime = false) {
+                    if (!data || data.length === 0 || (typeof data[0] === 'string' && data[0].startsWith('错误'))) {
+                        if (this.charts[chartId]) {
+                            this.charts[chartId].destroy();
+                            delete this.charts[chartId];
+                        }
+                        return;
+                    }
+
+                    let labels, datasets;
+                    let yAxisLabel = '';
+
+                    if (isRealtime) {
+                        labels = data.map(item => item.time);
+                        const rxData = data.map(item => item.rx / 1024); // Bytes to KB/s
+                        const txData = data.map(item => item.tx / 1024); // Bytes to KB/s
+                        datasets = [
+                            { label: '接收 (KB/s)', data: rxData, borderColor: 'rgba(54, 162, 235, 1)', backgroundColor: 'rgba(54, 162, 235, 0.2)', fill: true },
+                            { label: '发送 (KB/s)', data: txData, borderColor: 'rgba(255, 99, 132, 1)', backgroundColor: 'rgba(255, 99, 132, 0.2)', fill: true }
+                        ];
+                        yAxisLabel = '速率 (KB/s)';
+                    } else {
+                        const parsedData = data.map(line => {
+                            const parts = line.trim().split(/\s*\|\s*|\s+/);
+                            if (parts.length >= 5) {
+                                return { label: parts[0], rx: `${parts[1]} ${parts[2]}`, tx: `${parts[3]} ${parts[4]}` };
+                            }
+                            return null;
+                        }).filter(Boolean);
+
+                        labels = parsedData.map(d => d.label);
+                        const rxData = parsedData.map(d => this.parseToGib(d.rx));
+                        const txData = parsedData.map(d => this.parseToGib(d.tx));
+
+                        datasets = [
+                            { label: '接收 (GiB)', data: rxData, borderColor: 'rgba(54, 162, 235, 1)', backgroundColor: 'rgba(54, 162, 235, 0.2)', fill: true },
+                            { label: '发送 (GiB)', data: txData, borderColor: 'rgba(255, 99, 132, 1)', backgroundColor: 'rgba(255, 99, 132, 0.2)', fill: true }
+                        ];
+                        yAxisLabel = '流量 (GiB)';
+                    }
+
+                    const isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+                    const textColor = isDarkMode ? '#ffffff' : '#666';
+
+                    if (this.charts[chartId]) {
+                        this.charts[chartId].data.labels = labels;
+                        this.charts[chartId].data.datasets[0].data = datasets[0].data;
+                        this.charts[chartId].data.datasets[1].data = datasets[1].data;
+                        this.charts[chartId].update('none'); // 'none' for no animation
+                    } else {
+                        const ctx = document.getElementById(chartId).getContext('2d');
+                        this.charts[chartId] = new Chart(ctx, {
+                            type: 'line',
+                            data: { labels, datasets },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                animation: { duration: 400 },
+                                scales: {
+                                    x: { grid: { color: gridColor }, ticks: { color: textColor, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 } },
+                                    y: { grid: { color: gridColor }, ticks: { color: textColor, callback: value => value.toFixed(2) } }
+                                },
+                                plugins: {
+                                    legend: { labels: { color: textColor } },
+                                    tooltip: {
+                                        callbacks: {
+                                            label: context => `${context.dataset.label}: ${context.parsed.y.toFixed(3)}`
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                },
+                parseToGib(valueStr) {
+                    if (typeof valueStr !== 'string') return 0;
+                    const parts = valueStr.toLowerCase().split(' ');
+                    if (parts.length < 1) return 0;
+                    const num = parseFloat(parts[0]);
+                    if (isNaN(num)) return 0;
+                    if (parts.length < 2) return num / (1024 * 1024 * 1024); // Assume bytes if no unit
+                    const unit = parts[1];
+                    if (unit.startsWith('k')) return num / (1024 * 1024);
+                    if (unit.startsWith('m')) return num / 1024;
+                    if (unit.startsWith('g')) return num;
+                    if (unit.startsWith('t')) return num * 1024;
+                    if (unit.startsWith('b')) return num / (1024 * 1024 * 1024);
+                    return num;
+                },
+                parseTableData(data) {
+                    if (!data || data.length === 0) return [];
+                    return data.map(line => {
+                        const parts = line.trim().split(/\s*\|\s*|\s+/);
+                        if (parts.length >= 7) {
+                            return { time: parts[0], rx: `${parts[1]} ${parts[2]}`, tx: `${parts[3]} ${parts[4]}`, total: `${parts[5]} ${parts[6]}` };
+                        }
+                        return null;
+                    }).filter(Boolean);
+                },
+                
             },
             watch: {
                 autoRefresh(newValue) {
@@ -790,6 +895,9 @@
                 this.loadInterfaces();
                 this.startAutoRefresh();
                 this.loadVersion();
+            },
+            created() {
+                this.charts = {};
             },
             beforeUnmount() {
                 if (this.refreshInterval) {
@@ -806,4 +914,4 @@
     <script>LA.init({id:"24WADmnDKAw7Dh8r",ck:"24WADmnDKAw7Dh8r"})</script>
 
 </body>
-</html> 
+</html>
