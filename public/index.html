@@ -57,8 +57,10 @@
     </script>
 
     <link href="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/twitter-bootstrap/5.1.3/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.bootcdn.net/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
     <script src="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/vue/3.2.31/vue.global.min.js"></script>
     <script src="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/axios/0.26.0/axios.min.js"></script>
+    <link href="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/bootstrap-icons/1.8.0/font/bootstrap-icons.min.css" rel="stylesheet">
     <style>
         pre {
             background: #f8f9fa;
@@ -463,6 +465,7 @@
                             <h5 class="card-title mb-0">分钟统计</h5>
                         </div>
                         <div class="card-body">
+                            <canvas ref="minuteChart" style="width:100%;max-width:100%;height:180px;"></canvas>
                             <pre>{{minuteStats.data.join('\n')}}</pre>
                         </div>
                     </div>
@@ -474,6 +477,7 @@
                             <h5 class="card-title mb-0">{{stat.title}}</h5>
                         </div>
                         <div class="card-body">
+                            <canvas :ref="'statChart' + index" style="width:100%;max-width:100%;height:180px;"></canvas>
                             <pre>{{stat.data.join('\n')}}</pre>
                         </div>
                     </div>
@@ -504,7 +508,10 @@
     </footer>
 
     <!-- 使用稳定版本的 Bootstrap Icons CDN -->
-    <link href="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/bootstrap-icons/1.8.0/font/bootstrap-icons.min.css" rel="stylesheet">
+    
+
+    <!-- Chart.js CDN -->
+    
 
     <!-- 更新页脚样式 -->
     <style>
@@ -690,11 +697,103 @@
                         this.error = '无法获取网络接口列表: ' + (error.response?.data?.error || error.message);
                     }
                 },
-                async loadStats(stat) {
+                parseStatData(data) {
+                    // 解析stat.data，返回 { labels: [], rx: [], tx: [] }
+                    let labels = [];
+                    let rx = [];
+                    let tx = [];
+                    let headerIdx = -1;
+                    let rxIdx = -1, txIdx = -1, labelIdx = 0;
+                    let started = false;
+                    for (let i = 0; i < data.length; i++) {
+                        const line = data[i].trim();
+                        if (!line) continue;
+                        if (line.includes('---')) { started = true; continue; }
+                        if (!started) {
+                            // 识别表头
+                            headerIdx = i;
+                            const header = data[i].replace(/\s+/g, ' ').trim().split(' ');
+                            // 兼容“接收/发送”或“rx/tx”
+                            rxIdx = header.findIndex(h => h === '接收' || h.toLowerCase() === 'rx');
+                            txIdx = header.findIndex(h => h === '发送' || h.toLowerCase() === 'tx');
+                            labelIdx = 0; // 通常第一个是时间/日期
+                            continue;
+                        }
+                        // 解析数据行
+                        const cols = line.replace(/\s+/g, ' ').trim().split(' ');
+                        if (cols.length < Math.max(rxIdx, txIdx) + 1) continue;
+                        // 跳过合计/平均/预计等行
+                        if (/总计|平均|预计|total|avg|est/.test(cols[labelIdx])) continue;
+                        // 只保留数字
+                        labels.push(cols[labelIdx]);
+                        rx.push(this.parseValue(cols[rxIdx]));
+                        tx.push(this.parseValue(cols[txIdx]));
+                    }
+                    return { labels, rx, tx };
+                },
+                parseValue(val) {
+                    // 支持MiB/KiB/GiB/TiB等vnstat原生单位，统一为MiB
+                    if (!val) return 0;
+                    const match = val.match(/([\d.]+)\s*([KMGTP]iB)?/i);
+                    if (!match) return 0;
+                    let num = parseFloat(match[1]);
+                    if (isNaN(num)) return 0;
+                    let unit = (match[2] || '').trim().toUpperCase();
+                    if (unit === 'KIB') return num / 1024;
+                    if (unit === 'MIB' || unit === '') return num;
+                    if (unit === 'GIB') return num * 1024;
+                    if (unit === 'TIB') return num * 1024 * 1024;
+                    return num;
+                },
+                renderMinuteChart() {
+                    if (this._minuteChart) this._minuteChart.destroy();
+                    const ctx = this.$refs.minuteChart;
+                    const { labels, rx, tx } = this.parseStatData(this.minuteStats.data);
+                    if (!labels.length) return;
+                    this._minuteChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels,
+                            datasets: [
+                                { label: '接收(MB)', data: rx, borderColor: '#4a90e2', backgroundColor: 'rgba(74,144,226,0.1)', tension: 0.3, fill: true },
+                                { label: '发送(MB)', data: tx, borderColor: '#f39c12', backgroundColor: 'rgba(243,156,18,0.1)', tension: 0.3, fill: true }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: { legend: { display: true }, tooltip: { enabled: true } },
+                            scales: { y: { beginAtZero: true } }
+                        }
+                    });
+                },
+                renderStatChart(index) {
+                    if (!this._statCharts) this._statCharts = [];
+                    if (this._statCharts[index]) this._statCharts[index].destroy();
+                    const ctx = this.$refs['statChart' + index];
+                    const { labels, rx, tx } = this.parseStatData(this.stats[index].data);
+                    if (!labels.length) return;
+                    this._statCharts[index] = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels,
+                            datasets: [
+                                { label: '接收(MB)', data: rx, borderColor: '#4a90e2', backgroundColor: 'rgba(74,144,226,0.1)', tension: 0.3, fill: true },
+                                { label: '发送(MB)', data: tx, borderColor: '#f39c12', backgroundColor: 'rgba(243,156,18,0.1)', tension: 0.3, fill: true }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: { legend: { display: true }, tooltip: { enabled: true } },
+                            scales: { y: { beginAtZero: true } }
+                        }
+                    });
+                },
+                async loadStats(stat, index) {
                     stat.loading = true;
                     try {
                         const response = await axios.get(`/api/stats/${this.selectedInterface}/${stat.period}`);
                         stat.data = response.data.data;
+                        this.$nextTick(() => this.renderStatChart(index));
                     } catch (error) {
                         stat.data = ['错误: ' + (error.response?.data?.error || error.message)];
                     }
@@ -715,6 +814,7 @@
                     try {
                         const response = await axios.get(`/api/stats/${this.selectedInterface}/5`);
                         this.minuteStats.data = response.data.data.filter(line => line.trim());
+                        this.$nextTick(() => this.renderMinuteChart());
                     } catch (error) {
                         this.minuteStats.data = ['错误: ' + (error.response?.data?.error || error.message)];
                     }
@@ -723,7 +823,7 @@
                 loadAllStats() {
                     this.loadRealtimeStats();
                     this.loadMinuteStats();
-                    this.stats.forEach(stat => this.loadStats(stat));
+                    this.stats.forEach((stat, idx) => this.loadStats(stat, idx));
                     this.updateLastUpdateTime();
                 },
                 updateLastUpdateTime() {
@@ -795,6 +895,8 @@
                 if (this.refreshInterval) {
                     clearInterval(this.refreshInterval);
                 }
+                if (this._minuteChart) this._minuteChart.destroy();
+                if (this._statCharts) this._statCharts.forEach(chart => chart.destroy());
             }
         });
 
