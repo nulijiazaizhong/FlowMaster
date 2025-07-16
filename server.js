@@ -302,15 +302,15 @@ app.get('/api/stats/:interface/:period', (req, res) => {
         function forceHeader(line) {
             // 判断表头类型
             if (line.includes('时间')) {
-                return `时间\t接收(${targetUnit})\t发送(${targetUnit})\t总计(${targetUnit})\t平均速率`;
+                return `时间\t| 接收(${targetUnit})\t发送(${targetUnit})\t总计(${targetUnit})\t平均速率`;
             } else if (line.includes('小时')) {
-                return `小时\t接收(${targetUnit})\t发送(${targetUnit})\t总计(${targetUnit})\t平均速率`;
+                return `小时\t| 接收(${targetUnit})\t发送(${targetUnit})\t总计(${targetUnit})\t平均速率`;
             } else if (line.includes('日期')) {
-                return `日期\t接收(${targetUnit})\t发送(${targetUnit})\t总计(${targetUnit})\t平均速率`;
+                return `日期\t| 接收(${targetUnit})\t发送(${targetUnit})\t总计(${targetUnit})\t平均速率`;
             } else if (line.includes('月份')) {
-                return `月份\t接收(${targetUnit})\t发送(${targetUnit})\t总计(${targetUnit})\t平均速率`;
+                return `月份\t| 接收(${targetUnit})\t发送(${targetUnit})\t总计(${targetUnit})\t平均速率`;
             } else if (line.includes('年份')) {
-                return `年份\t接收(${targetUnit})\t发送(${targetUnit})\t总计(${targetUnit})\t平均速率`;
+                return `年份\t| 接收(${targetUnit})\t发送(${targetUnit})\t总计(${targetUnit})\t平均速率`;
             }
             return line;
         }
