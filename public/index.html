@@ -946,19 +946,23 @@
                     let header = [];
                     if (headerLine.includes('|')) {
                         const segs = headerLine.split('|');
-                        // 第一个分段用多空格分割
                         header = segs[0].trim().split(/\s{2,}/).map(h => h.trim());
-                        // 其余分段直接trim
                         for (let i = 1; i < segs.length; i++) {
                             if (segs[i].trim()) header.push(segs[i].trim());
                         }
                     } else {
                         header = headerLine.split(/\s{2,}/).map(h => h.trim());
                     }
+                    // 记录关键列索引
+                    const rxIdx = header.findIndex(h => h.includes('接收'));
+                    const txIdx = header.findIndex(h => h.includes('发送'));
+                    const totalIdx = header.findIndex(h => h.includes('总计'));
+                    const avgIdx = header.findIndex(h => h.includes('平均速率'));
                     html += '<table class="table table-sm table-bordered mb-0" style="font-size:13px;">';
                     html += '<thead><tr>' + header.map(h => `<th>${h}</th>`).join('') + '</tr></thead>';
                     html += '<tbody>';
                     // 其余为数据行，分割方式同上
+                    let dataRowIdx = 0;
                     for (let i = 2; i < data.length; i++) {
                         let line = data[i];
                         if (line.includes('---')) continue;
@@ -973,7 +977,18 @@
                             cols = line.split(/\s{2,}/).map(c => c.trim());
                         }
                         if (cols.length === 1 && !cols[0]) continue;
-                        html += '<tr>' + cols.map(c => `<td>${c}</td>`).join('') + '</tr>';
+                        // 斑马纹背景色
+                        const rowBg = dataRowIdx % 2 === 0 ? '#fff' : '#f6f8fa';
+                        html += `<tr style='background:${rowBg};'>` +
+                            cols.map((c, idx) => {
+                                let style = '';
+                                if (idx === rxIdx) style = 'color:#4a90e2;font-weight:500;';
+                                if (idx === txIdx) style = 'color:#f39c12;font-weight:500;';
+                                if (idx === totalIdx) style = 'color:#27ae60;font-weight:500;';
+                                if (idx === avgIdx) style = 'color:#8e44ad;font-weight:500;';
+                                return `<td style='${style}'>${c}</td>`;
+                            }).join('') + '</tr>';
+                        dataRowIdx++;
                     }
                     html += '</tbody></table>';
                     return html;
