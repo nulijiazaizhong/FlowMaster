@@ -818,13 +818,15 @@
                     if (period === 'y') unit = 'TiB';
                     const { labels, rx, tx } = this.parseStatData(this.stats[index].data, unit);
                     if (!labels.length) return;
+                    // 年统计用柱状图，其余用折线图
+                    const chartType = period === 'y' ? 'bar' : 'line';
                     this._statCharts[index] = new Chart(ctx, {
-                        type: 'line',
+                        type: chartType,
                         data: {
                             labels,
                             datasets: [
-                                { label: `接收(${unit})`, data: rx, borderColor: '#4a90e2', backgroundColor: 'rgba(74,144,226,0.1)', tension: 0.3, fill: true },
-                                { label: `发送(${unit})`, data: tx, borderColor: '#f39c12', backgroundColor: 'rgba(243,156,18,0.1)', tension: 0.3, fill: true }
+                                { label: `接收(${unit})`, data: rx, backgroundColor: period === 'y' ? '#4a90e2' : undefined, borderColor: '#4a90e2', backgroundColor: period !== 'y' ? 'rgba(74,144,226,0.1)' : undefined, tension: 0.3, fill: period !== 'y' },
+                                { label: `发送(${unit})`, data: tx, backgroundColor: period === 'y' ? '#f39c12' : undefined, borderColor: '#f39c12', backgroundColor: period !== 'y' ? 'rgba(243,156,18,0.1)' : undefined, tension: 0.3, fill: period !== 'y' }
                             ]
                         },
                         options: {
