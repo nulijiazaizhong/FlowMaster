@@ -464,8 +464,8 @@
                         <div class="card-header">
                             <h5 class="card-title mb-0">分钟统计</h5>
                         </div>
-                        <div class="card-body">
-                            <canvas ref="minuteChart" style="width:100%;max-width:100%;height:180px;"></canvas>
+                        <div class="card-body" style="height:180px;">
+                            <canvas ref="minuteChart" style="width:100%;max-width:100%;"></canvas>
                             <div v-html="renderTableHtml(formatTableDataUnified(minuteStats.data, minuteStats.unit, minuteStats.factor), minuteStats.unit)"></div>
                         </div>
                     </div>
@@ -476,8 +476,8 @@
                         <div class="card-header">
                             <h5 class="card-title mb-0">{{stat.title}}</h5>
                         </div>
-                        <div class="card-body">
-                            <canvas :ref="'statChart' + index" style="width:100%;max-width:100%;height:180px;"></canvas>
+                        <div class="card-body" style="height:180px;">
+                            <canvas :ref="'statChart' + index" style="width:100%;max-width:100%;"></canvas>
                             <div v-html="renderTableHtml(formatTableDataUnified(stat.data, stat.unit, stat.factor), stat.unit)"></div>
                         </div>
                     </div>
