@@ -466,7 +466,7 @@
                         </div>
                         <div class="card-body">
                             <canvas ref="minuteChart" style="width:100%;max-width:100%;height:180px;"></canvas>
-                            <pre>{{minuteStats.data.join('\n')}}</pre>
+                            <pre>{{formatTableDataUnified(minuteStats.data, minuteStats.unit, minuteStats.factor).join('\n')}}</pre>
                         </div>
                     </div>
                 </div>
@@ -478,7 +478,7 @@
                         </div>
                         <div class="card-body">
                             <canvas :ref="'statChart' + index" style="width:100%;max-width:100%;height:180px;"></canvas>
-                            <pre>{{stat.data.join('\n')}}</pre>
+                            <pre>{{formatTableDataUnified(stat.data, stat.unit, stat.factor).join('\n')}}</pre>
                         </div>
                     </div>
                 </div>
@@ -745,6 +745,54 @@
                     if (unit === 'TIB') return num * 1024 * 1024;
                     return num;
                 },
+                getBestUnitAndFactor(arr) {
+                    // 计算最佳单位和换算因子，支持MiB/GiB/TiB
+                    const max = Math.max(...arr);
+                    if (max >= 1024 * 1024) return { unit: 'TiB', factor: 1 / (1024 * 1024) };
+                    if (max >= 1024) return { unit: 'GiB', factor: 1 / 1024 };
+                    return { unit: 'MiB', factor: 1 };
+                },
+                // 新：格式化表格数据为统一单位且移除原始单位
+                formatTableDataUnified(data, unit, factor) {
+                    let result = [];
+                    let started = false;
+                    let rxIdx = -1, txIdx = -1, totalIdx = -1;
+                    for (let i = 0; i < data.length; i++) {
+                        let line = data[i];
+                        if (!started && line.includes('---')) { started = true; result.push(line); continue; }
+                        if (!started) {
+                            // 处理表头，标注单位
+                            let header = line.replace(/\s+/g, ' ').trim().split(' ');
+                            rxIdx = header.findIndex(h => h === '接收' || h.toLowerCase() === 'rx');
+                            txIdx = header.findIndex(h => h === '发送' || h.toLowerCase() === 'tx');
+                            totalIdx = header.findIndex(h => h === '总计' || h.toLowerCase() === 'total');
+                            if (rxIdx !== -1) header[rxIdx] += `(${unit})`;
+                            if (txIdx !== -1) header[txIdx] += `(${unit})`;
+                            if (totalIdx !== -1) header[totalIdx] += `(${unit})`;
+                            result.push(header.join(' '));
+                            continue;
+                        }
+                        // 只处理数据行
+                        let cols = line.replace(/\s+/g, ' ').trim().split(' ');
+                        if (cols.length < Math.max(rxIdx, txIdx, totalIdx) + 1) { result.push(line); continue; }
+                        // 跳过合计/平均/预计等行
+                        if (/总计|平均|预计|total|avg|est/.test(cols[0])) { result.push(line); continue; }
+                        // 格式化数值并移除原单位
+                        if (rxIdx !== -1) cols[rxIdx] = this.formatValueToUnitNoUnit(cols[rxIdx], factor);
+                        if (txIdx !== -1) cols[txIdx] = this.formatValueToUnitNoUnit(cols[txIdx], factor);
+                        if (totalIdx !== -1) cols[totalIdx] = this.formatValueToUnitNoUnit(cols[totalIdx], factor);
+                        result.push(cols.join(' '));
+                    }
+                    return result;
+                },
+                formatValueToUnitNoUnit(val, factor) {
+                    // 提取数值并换算为目标单位，保留两位小数，不显示原单位
+                    const match = val.match(/([\d.]+)/);
+                    if (!match) return val;
+                    let num = parseFloat(match[1]);
+                    if (isNaN(num)) return val;
+                    return (num * factor).toFixed(2);
+                },
                 renderMinuteChart() {
                     if (this._minuteChart) this._minuteChart.destroy();
                     const ctx = this.$refs.minuteChart;
@@ -794,6 +842,12 @@
                         const response = await axios.get(`/api/stats/${this.selectedInterface}/${stat.period}`);
                         stat.data = response.data.data;
                         this.$nextTick(() => this.renderStatChart(index));
+                        // 统一单位
+                        const { labels, rx, tx } = this.parseStatData(stat.data);
+                        const all = rx.concat(tx);
+                        const { unit, factor } = this.getBestUnitAndFactor(all);
+                        stat.unit = unit;
+                        stat.factor = factor;
                     } catch (error) {
                         stat.data = ['错误: ' + (error.response?.data?.error || error.message)];
                     }
@@ -815,6 +869,12 @@
                         const response = await axios.get(`/api/stats/${this.selectedInterface}/5`);
                         this.minuteStats.data = response.data.data.filter(line => line.trim());
                         this.$nextTick(() => this.renderMinuteChart());
+                        // 统一单位
+                        const { labels, rx, tx } = this.parseStatData(this.minuteStats.data);
+                        const all = rx.concat(tx);
+                        const { unit, factor } = this.getBestUnitAndFactor(all);
+                        this.minuteStats.unit = unit;
+                        this.minuteStats.factor = factor;
                     } catch (error) {
                         this.minuteStats.data = ['错误: ' + (error.response?.data?.error || error.message)];
                     }
