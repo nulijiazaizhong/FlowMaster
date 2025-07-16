@@ -982,10 +982,10 @@
                         html += `<tr style='background:${rowBg};'>` +
                             cols.map((c, idx) => {
                                 let style = '';
-                                if (idx === rxIdx) style = 'color:#4a90e2;font-weight:500;';
-                                if (idx === txIdx) style = 'color:#f39c12;font-weight:500;';
-                                if (idx === totalIdx) style = 'color:#27ae60;font-weight:500;';
-                                if (idx === avgIdx) style = 'color:#8e44ad;font-weight:500;';
+                                if (idx === rxIdx) style = 'color:#2563eb;font-weight:500;'; // 现代蓝
+                                if (idx === txIdx) style = 'color:#fb923c;font-weight:500;'; // 现代橙
+                                if (idx === totalIdx) style = 'color:#14b8a6;font-weight:500;'; // 现代青绿
+                                if (idx === avgIdx) style = 'color:#64748b;font-weight:500;'; // 现代蓝灰
                                 return `<td style='${style}'>${c}</td>`;
                             }).join('') + '</tr>';
                         dataRowIdx++;
