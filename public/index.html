@@ -448,18 +448,7 @@
             </div>
 
             <div class="row" v-cloak>
-                <div class="col-md-12 mb-4">
-                    <div class="card" :class="{ loading: realtimeStats.loading }">
-                        <div class="card-header">
-                            <h5 class="card-title mb-0">实时统计</h5>
-                        </div>
-                        <div class="card-body">
-                            <pre>{{realtimeStats.data.join('\n')}}</pre>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-12 mb-4">
+                <div class="col-md-6 mb-4">
                     <div class="card" :class="{ loading: minuteStats.loading }">
                         <div class="card-header">
                             <h5 class="card-title mb-0">分钟统计</h5>
@@ -472,7 +461,6 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="col-md-6 mb-4" v-for="(stat, index) in stats" :key="index">
                     <div class="card" :class="{ loading: stat.loading }">
                         <div class="card-header">
