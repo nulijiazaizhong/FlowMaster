@@ -264,10 +264,32 @@ app.get('/api/stats/:interface/:period', (req, res) => {
                 break;
         }
 
-        // 统一处理所有周期（分钟、小时、日、月、年）：
+        // 单位归一化辅助函数
+        function normalizeValue(val, targetUnit) {
+            if (!val) return val;
+            const match = val.match(/([\d.]+)\s*(MiB|GiB|TiB)?/i);
+            if (!match) return val;
+            let num = parseFloat(match[1]);
+            let unit = (match[2] || 'MiB').toUpperCase();
+            // 统一换算为MiB
+            if (unit === 'GIB') num *= 1024;
+            if (unit === 'TIB') num *= 1024 * 1024;
+            // 目标单位
+            if (targetUnit === 'GiB') {
+                num = num / 1024;
+                return num.toFixed(2) + ' GiB';
+            } else {
+                return num.toFixed(2) + ' MiB';
+            }
+        }
+
+        // 判断周期类型
+        const isMinuteOrHour = ['5', 'h'].includes(period);
+        const isDayMonthYear = ['d', 'm', 'y'].includes(period);
+
         lines = lines.map((line, idx) => {
-            // 跳过分隔线和空行
-            if (line.includes('---') || !line.trim()) return line;
+            // 跳过分隔线、空行和“预计”行
+            if (line.includes('---') || !line.trim() || line.includes('预计')) return line;
             // 处理表头（含“接收”且有“时间”、“小时”、“日期”、“月份”、“年份”之一在前）
             if (line.includes('接收') &&
                 (line.includes('时间') || line.includes('小时') || line.includes('日期') || line.includes('月份') || line.includes('年份'))
@@ -275,15 +297,31 @@ app.get('/api/stats/:interface/:period', (req, res) => {
                 // 在“接收”前插入 |
                 return line.replace(/(时间\s+|小时\s+|日期\s+|月份\s+|年份\s+)(接收)/, '$1| $2');
             }
-            // 处理数据行：
+            // 处理数据行分隔符
             // 时间（分钟/小时）
-            line = line.replace(/^(\s*\d{2}:\d{2})(\s+)/, '$1 |$2');
+            line = line.replace(/^(\s*\d{2}(:\d{2})?)(\s+)/, '$1 |$3');
             // 日期（YYYY-MM-DD）
             line = line.replace(/^(\s*\d{4}-\d{2}-\d{2})(\s+)/, '$1 |$2');
             // 月份（YYYY-MM）
             line = line.replace(/^(\s*\d{4}-\d{2})(\s+)/, '$1 |$2');
             // 年份（YYYY）
             line = line.replace(/^(\s*\d{4})(\s+)/, '$1 |$2');
+
+            // 单位归一化处理
+            if (isMinuteOrHour || isDayMonthYear) {
+                // 用 | 分割，找到接收/发送/总计字段
+                let parts = line.split('|');
+                if (parts.length < 5) return line; // 不处理异常行
+                // 只处理数据部分（去除首尾空格）
+                let rx = parts[1].trim();
+                let tx = parts[2].trim();
+                let total = parts[3].trim();
+                let targetUnit = isMinuteOrHour ? 'MiB' : 'GiB';
+                parts[1] = ' ' + normalizeValue(rx, targetUnit);
+                parts[2] = ' ' + normalizeValue(tx, targetUnit);
+                parts[3] = ' ' + normalizeValue(total, targetUnit);
+                return parts.join('|');
+            }
             return line;
         });
 
