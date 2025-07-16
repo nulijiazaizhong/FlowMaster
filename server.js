@@ -273,10 +273,9 @@ app.get('/api/stats/:interface/:period', (req, res) => {
                 // 在“接收”前插入 |
                 return line.replace(/(时间\s+)(接收)/, '$1| $2');
             }
-            // 处理数据行：行首“时间+空格+接收数值+MiB”，在MiB后插入 |
-            // 例：18:50    221.93 MiB |  224.42 MiB ...
-            return line.replace(/^(\s*\d{2}:\d{2}\s+\d+\.\d+\s*MiB)(\s*\|)/, '$1 |$2')
-                        .replace(/^(\s*\d{2}:\d{2}\s+\d+\.\d+\s*MiB)(\s{2,})/, '$1 |$2');
+            // 处理数据行：在“时间”字段后第一个空白处插入 |
+            // 例：18:55    251.78 MiB ... => 18:55 | 251.78 MiB ...
+            return line.replace(/^(\s*\d{2}:\d{2})(\s+)/, '$1 |$2');
         });
 
         res.json({ data: lines });
