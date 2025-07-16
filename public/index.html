@@ -732,17 +732,17 @@
                     return { labels, rx, tx };
                 },
                 parseValue(val) {
-                    // 只识别KB/MB/GB/TB，单位已由后端标准化
+                    // 支持MiB/KiB/GiB/TiB等vnstat原生单位，统一为MiB
                     if (!val) return 0;
-                    const match = val.match(/([\d.]+)\s*(KB|MB|GB|TB)?/i);
+                    const match = val.match(/([\d.]+)\s*([KMGTP]iB)?/i);
                     if (!match) return 0;
                     let num = parseFloat(match[1]);
                     if (isNaN(num)) return 0;
                     let unit = (match[2] || '').trim().toUpperCase();
-                    if (unit === 'KB') return num / 1024;
-                    if (unit === 'MB' || unit === '') return num;
-                    if (unit === 'GB') return num * 1024;
-                    if (unit === 'TB') return num * 1024 * 1024;
+                    if (unit === 'KIB') return num / 1024;
+                    if (unit === 'MIB' || unit === '') return num;
+                    if (unit === 'GIB') return num * 1024;
+                    if (unit === 'TIB') return num * 1024 * 1024;
                     return num;
                 },
                 renderMinuteChart() {
