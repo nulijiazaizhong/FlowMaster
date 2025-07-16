@@ -392,6 +392,11 @@
                             自动刷新
                         </label>
                     </div>
+                    <!-- 主题切换开关 -->
+                    <button class="btn btn-sm ms-2" :class="isDarkMode ? 'btn-dark' : 'btn-light'" @click="toggleTheme" :aria-label="isDarkMode ? '切换为浅色' : '切换为深色'" style="vertical-align:middle;">
+                        <span v-if="isDarkMode">🌙</span>
+                        <span v-else>☀️</span>
+                    </button>
                     <div class="update-time" v-if="lastUpdateTime">
                         最后更新: {{lastUpdateTime}}
                     </div>
@@ -646,7 +651,8 @@
                     dateRangeStats: {
                         data: [],
                         loading: false
-                    }
+                    },
+                    isDarkMode: false
                 }
             },
             computed: {
@@ -1027,6 +1033,27 @@
                     }
                     html += '</tbody></table>';
                     return html;
+                },
+                toggleTheme() {
+                    this.isDarkMode = !this.isDarkMode;
+                    document.body.classList.toggle('dark', this.isDarkMode);
+                    localStorage.setItem('theme', this.isDarkMode ? 'dark' : 'light');
+                },
+                applyThemeFromPreference() {
+                    // 优先用户选择，否则跟随系统
+                    const userTheme = localStorage.getItem('theme');
+                    if (userTheme === 'dark') {
+                        this.isDarkMode = true;
+                        document.body.classList.add('dark');
+                    } else if (userTheme === 'light') {
+                        this.isDarkMode = false;
+                        document.body.classList.remove('dark');
+                    } else {
+                        // 跟随系统
+                        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                        this.isDarkMode = prefersDark;
+                        document.body.classList.toggle('dark', prefersDark);
+                    }
                 }
             },
             watch: {
@@ -1042,6 +1069,17 @@
                 this.loadInterfaces();
                 this.startAutoRefresh();
                 this.loadVersion();
+                this.applyThemeFromPreference();
+                // 监听系统主题变化（如未手动选择时）
+                if (window.matchMedia) {
+                    this._themeListener = (e) => {
+                        if (!localStorage.getItem('theme')) {
+                            this.isDarkMode = e.matches;
+                            document.body.classList.toggle('dark', e.matches);
+                        }
+                    };
+                    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', this._themeListener);
+                }
                 // 新增：监听窗口resize事件
                 window.addEventListener('resize', this.resizeAllCharts);
             },
@@ -1053,6 +1091,10 @@
                 if (this._statCharts) this._statCharts.forEach(chart => chart.destroy());
                 // 新增：移除resize事件监听
                 window.removeEventListener('resize', this.resizeAllCharts);
+                // 移除主题监听
+                if (window.matchMedia && this._themeListener) {
+                    window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', this._themeListener);
+                }
             }
         });
 
