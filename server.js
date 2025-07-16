@@ -264,19 +264,19 @@ app.get('/api/stats/:interface/:period', (req, res) => {
                 break;
         }
 
-        // 新增：只在表头“接收”前加 |，数据行“MiB”后加 |
+        // 优化：无论数据行是否已有 |，都强制在“时间”和“接收”之间插入 |
         lines = lines.map((line, idx) => {
             // 跳过分隔线和空行
             if (line.includes('---') || !line.trim()) return line;
-            // 只处理表头（含“接收”且无|）
-            if (line.includes('接收') && !line.includes('|')) {
-                return line.replace('接收', '| 接收');
+            // 处理表头（含“接收”且“时间”在前）
+            if (line.includes('接收') && line.includes('时间')) {
+                // 在“接收”前插入 |
+                return line.replace(/(时间\s+)(接收)/, '$1| $2');
             }
-            // 只处理数据行（有MiB且无|）
-            if (line.match(/MiB/) && !line.includes('|')) {
-                return line.replace('MiB', '| MiB');
-            }
-            return line;
+            // 处理数据行：行首“时间+空格+接收数值+MiB”，在MiB后插入 |
+            // 例：18:50    221.93 MiB |  224.42 MiB ...
+            return line.replace(/^(\s*\d{2}:\d{2}\s+\d+\.\d+\s*MiB)(\s*\|)/, '$1 |$2')
+                        .replace(/^(\s*\d{2}:\d{2}\s+\d+\.\d+\s*MiB)(\s{2,})/, '$1 |$2');
         });
 
         res.json({ data: lines });
