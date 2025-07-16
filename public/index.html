@@ -466,7 +466,7 @@
                         </div>
                         <div class="card-body">
                             <canvas ref="minuteChart" style="width:100%;max-width:100%;height:180px;"></canvas>
-                            <pre>{{formatTableDataUnified(minuteStats.data, minuteStats.unit, minuteStats.factor).join('\n')}}</pre>
+                            <div v-html="renderTableHtml(formatTableDataUnified(minuteStats.data, minuteStats.unit, minuteStats.factor), minuteStats.unit)"></div>
                         </div>
                     </div>
                 </div>
@@ -478,7 +478,7 @@
                         </div>
                         <div class="card-body">
                             <canvas :ref="'statChart' + index" style="width:100%;max-width:100%;height:180px;"></canvas>
-                            <pre>{{formatTableDataUnified(stat.data, stat.unit, stat.factor).join('\n')}}</pre>
+                            <div v-html="renderTableHtml(formatTableDataUnified(stat.data, stat.unit, stat.factor), stat.unit)"></div>
                         </div>
                     </div>
                 </div>
@@ -935,6 +935,27 @@
                     this.dateRangeStats.data = [];
                     this.dateRange.start = '';
                     this.dateRange.end = '';
+                },
+                // 新：将格式化后的数据渲染为HTML表格
+                renderTableHtml(data, unit) {
+                    if (!data || data.length === 0) return '';
+                    // 第一行为标题（如 eth0 / 5 minute），单独一行
+                    let html = `<div style='font-weight:bold;margin-bottom:4px;'>${data[0]}</div>`;
+                    // 第二行为表头
+                    let header = data[1].replace(/\s*\|\s*/g, '|').split('|').map(h => h.trim());
+                    html += '<table class="table table-sm table-bordered mb-0" style="font-size:13px;">';
+                    html += '<thead><tr>' + header.map(h => `<th>${h}</th>`).join('') + '</tr></thead>';
+                    html += '<tbody>';
+                    // 其余为数据行
+                    for (let i = 2; i < data.length; i++) {
+                        let line = data[i];
+                        if (line.includes('---')) continue;
+                        let cols = line.replace(/\s*\|\s*/g, '|').split('|').map(c => c.trim());
+                        if (cols.length === 1 && !cols[0]) continue;
+                        html += '<tr>' + cols.map(c => `<td>${c}</td>`).join('') + '</tr>';
+                    }
+                    html += '</tbody></table>';
+                    return html;
                 }
             },
             watch: {
