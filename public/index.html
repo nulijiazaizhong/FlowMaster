@@ -787,6 +787,8 @@
                 renderMinuteChart() {
                     if (this._minuteChart) this._minuteChart.destroy();
                     const ctx = this.$refs.minuteChart;
+                    // 修复自动刷新导致canvas高度异常
+                    if (ctx) ctx.height = 180;
                     // 5分钟卡片单位固定为MiB
                     const unit = 'MiB';
                     const { labels, rx, tx } = this.parseStatData(this.minuteStats.data, unit);
@@ -796,8 +798,8 @@
                         data: {
                             labels,
                             datasets: [
-                                { label: `接收(${unit})`, data: rx, borderColor: '#4a90e2', backgroundColor: 'rgba(74,144,226,0.1)', tension: 0.3, fill: true },
-                                { label: `发送(${unit})`, data: tx, borderColor: '#f39c12', backgroundColor: 'rgba(243,156,18,0.1)', tension: 0.3, fill: true }
+                                { label: `接收(${unit})`, data: rx, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.08)', tension: 0.3, fill: true },
+                                { label: `发送(${unit})`, data: tx, borderColor: '#fb923c', backgroundColor: 'rgba(251,146,60,0.08)', tension: 0.3, fill: true }
                             ]
                         },
                         options: {
@@ -811,6 +813,8 @@
                     if (!this._statCharts) this._statCharts = [];
                     if (this._statCharts[index]) this._statCharts[index].destroy();
                     const ctx = this.$refs['statChart' + index];
+                    // 修复自动刷新导致canvas高度异常
+                    if (ctx) ctx.height = 180;
                     // 根据周期强制单位
                     let unit = 'MiB';
                     const period = this.stats[index].period;
@@ -825,8 +829,8 @@
                         data: {
                             labels,
                             datasets: [
-                                { label: `接收(${unit})`, data: rx, backgroundColor: period === 'y' ? '#4a90e2' : 'rgba(74,144,226,0.1)', borderColor: '#4a90e2', tension: 0.3, fill: period !== 'y' },
-                                { label: `发送(${unit})`, data: tx, backgroundColor: period === 'y' ? '#f39c12' : 'rgba(243,156,18,0.1)', borderColor: '#f39c12', tension: 0.3, fill: period !== 'y' }
+                                { label: `接收(${unit})`, data: rx, backgroundColor: period === 'y' ? '#2563eb' : 'rgba(37,99,235,0.08)', borderColor: '#2563eb', tension: 0.3, fill: period !== 'y' },
+                                { label: `发送(${unit})`, data: tx, backgroundColor: period === 'y' ? '#fb923c' : 'rgba(251,146,60,0.08)', borderColor: '#fb923c', tension: 0.3, fill: period !== 'y' }
                             ]
                         },
                         options: {
