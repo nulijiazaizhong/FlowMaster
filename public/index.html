@@ -941,8 +941,15 @@
                     if (!data || data.length === 0) return '';
                     // 第一行为标题（如 eth0 / 5 minute），单独一行
                     let html = `<div style='font-weight:bold;margin-bottom:4px;'>${data[0]}</div>`;
-                    // 第二行为表头
-                    let header = data[1].replace(/\s*\|\s*/g, '|').split('|').map(h => h.trim());
+                    // 第二行为表头，严格按空格或竖线分列
+                    let headerLine = data[1];
+                    let header;
+                    if (headerLine.includes('|')) {
+                        header = headerLine.split('|').map(h => h.trim());
+                    } else {
+                        // 多空格分隔
+                        header = headerLine.split(/\s{2,}/).map(h => h.trim());
+                    }
                     html += '<table class="table table-sm table-bordered mb-0" style="font-size:13px;">';
                     html += '<thead><tr>' + header.map(h => `<th>${h}</th>`).join('') + '</tr></thead>';
                     html += '<tbody>';
@@ -950,7 +957,12 @@
                     for (let i = 2; i < data.length; i++) {
                         let line = data[i];
                         if (line.includes('---')) continue;
-                        let cols = line.replace(/\s*\|\s*/g, '|').split('|').map(c => c.trim());
+                        let cols;
+                        if (line.includes('|')) {
+                            cols = line.split('|').map(c => c.trim());
+                        } else {
+                            cols = line.split(/\s{2,}/).map(c => c.trim());
+                        }
                         if (cols.length === 1 && !cols[0]) continue;
                         html += '<tr>' + cols.map(c => `<td>${c}</td>`).join('') + '</tr>';
                     }
