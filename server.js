@@ -316,8 +316,10 @@ app.get('/api/stats/:interface/:period', (req, res) => {
         }
 
         lines = lines.map((line, idx) => {
-            // 跳过分隔线、空行和“预计”行
-            if (line.includes('---') || !line.trim() || line.includes('预计')) return line;
+            // 跳过分隔线、空行
+            if (line.includes('---') || !line.trim()) return line;
+            // 月/年卡片去掉“预计”行
+            if ((period === 'm' || period === 'y') && line.includes('预计')) return null;
             // 强制修正表头
             if (line.includes('接收') &&
                 (line.includes('时间') || line.includes('小时') || line.includes('日期') || line.includes('月份') || line.includes('年份'))
@@ -349,7 +351,7 @@ app.get('/api/stats/:interface/:period', (req, res) => {
                 return parts.join('|');
             }
             return line;
-        });
+        }).filter(Boolean);
 
         res.json({ data: lines });
     });
