@@ -732,15 +732,19 @@
                     return { labels, rx, tx };
                 },
                 parseValue(val) {
-                    // 统一单位为MiB（MB）
+                    // 健壮提取数值和单位，统一为MiB
                     if (!val) return 0;
-                    let num = parseFloat(val);
+                    // 匹配数值和单位，兼容空格、大小写
+                    const match = val.match(/([\d.]+)\s*([KMG]?i?B)?/i);
+                    if (!match) return 0;
+                    let num = parseFloat(match[1]);
                     if (isNaN(num)) return 0;
-                    // KiB/MiB/GiB 兼容
-                    if (/KiB|KB/.test(val)) return num / 1024;
-                    if (/GiB|GB/.test(val)) return num * 1024;
-                    // 默认MiB/MB
-                    return num;
+                    let unit = (match[2] || '').trim().toUpperCase();
+                    // 统一换算为MiB
+                    if (unit === 'KIB' || unit === 'KB') return num / 1024;
+                    if (unit === 'MIB' || unit === 'MB' || unit === '') return num;
+                    if (unit === 'GIB' || unit === 'GB') return num * 1024;
+                    return num; // 兜底
                 },
                 renderMinuteChart() {
                     if (this._minuteChart) this._minuteChart.destroy();
