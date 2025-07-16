@@ -465,8 +465,8 @@
                             <h5 class="card-title mb-0">分钟统计</h5>
                         </div>
                         <div class="card-body">
+                            <canvas ref="minuteChart" style="width:100%;max-width:100%;height:180px;"></canvas>
                             <pre>{{minuteStats.data.join('\n')}}</pre>
-                            <canvas ref="minuteChart" style="width:100%;max-width:100%;height:240px;"></canvas>
                         </div>
                     </div>
                 </div>
@@ -477,8 +477,8 @@
                             <h5 class="card-title mb-0">{{stat.title}}</h5>
                         </div>
                         <div class="card-body">
+                            <canvas :ref="'statChart' + index" style="width:100%;max-width:100%;height:180px;"></canvas>
                             <pre>{{stat.data.join('\n')}}</pre>
-                            <canvas :ref="'statChart' + index" style="width:100%;max-width:100%;height:240px;"></canvas>
                         </div>
                     </div>
                 </div>
@@ -631,7 +631,7 @@
                         { period: 'm', title: '月统计', data: [], loading: false },
                         { period: 'y', title: '年统计', data: [], loading: false }
                     ],
-                    autoRefresh: true,
+                    autoRefresh: false,
                     refreshInterval: null,
                     lastUpdateTime: '',
                     version: '',
