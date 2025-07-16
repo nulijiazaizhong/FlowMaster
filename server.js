@@ -54,6 +54,11 @@ const translations = {
 function translateOutput(text) {
     let lines = text.split('\n');
     lines = lines.map(line => {
+        // 单位标准化
+        line = line.replace(/\b(kib|kb|KiB)\b/gi, 'KB')
+                   .replace(/\b(mib|mb|MiB)\b/gi, 'MB')
+                   .replace(/\b(gib|gb|GiB)\b/gi, 'GB')
+                   .replace(/\b(tib|tb|TiB)\b/gi, 'TB');
         // 特殊处理采样信息
         if (line.includes('Sampling')) {
             return line
