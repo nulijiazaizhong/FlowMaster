@@ -732,13 +732,14 @@
                     return { labels, rx, tx };
                 },
                 parseValue(val) {
-                    // 统一单位为MB
+                    // 统一单位为MiB（MB）
                     if (!val) return 0;
                     let num = parseFloat(val);
                     if (isNaN(num)) return 0;
-                    if (/KB|KB\/秒/.test(val)) return num / 1024;
-                    if (/GB|GB\/秒/.test(val)) return num * 1024;
-                    // 默认MB
+                    // KiB/MiB/GiB 兼容
+                    if (/KiB|KB/.test(val)) return num / 1024;
+                    if (/GiB|GB/.test(val)) return num * 1024;
+                    // 默认MiB/MB
                     return num;
                 },
                 renderMinuteChart() {
