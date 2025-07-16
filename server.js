@@ -264,20 +264,19 @@ app.get('/api/stats/:interface/:period', (req, res) => {
                 break;
         }
 
-        // 新增：对表头和数据行的第一个分段插入 | 分隔符
+        // 新增：只在表头“接收”前加 |，数据行“MiB”后加 |
         lines = lines.map((line, idx) => {
-            // 只处理表头和数据行（跳过分隔线和空行）
+            // 跳过分隔线和空行
             if (line.includes('---') || !line.trim()) return line;
-            // 只处理含有“接收”或“MiB”且没有 | 的行
-            if (line.includes('|')) return line;
-            // 处理表头（含“接收”）
-            if (line.includes('接收')) {
-                // 将“时间        接收”之间插入 |
-                return line.replace(/(时间\s{2,}接收)/, (m) => m.replace('接收', '| 接收'));
+            // 只处理表头（含“接收”且无|）
+            if (line.includes('接收') && !line.includes('|')) {
+                return line.replace('接收', '| 接收');
             }
-            // 处理数据行（如“18:40    235.55 MiB”）
-            // 匹配“时间  空格  数字+MiB”
-            return line.replace(/(\d{2}:\d{2}\s+\d+\.\d+\s*MiB)/, (m) => m.replace('MiB', 'MiB |'));
+            // 只处理数据行（有MiB且无|）
+            if (line.match(/MiB/) && !line.includes('|')) {
+                return line.replace('MiB', '| MiB');
+            }
+            return line;
         });
 
         res.json({ data: lines });
