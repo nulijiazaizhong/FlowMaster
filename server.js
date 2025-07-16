@@ -295,32 +295,34 @@ app.get('/api/stats/:interface/:period', (req, res) => {
             }
         }
 
-        // 判断周期类型
-        const isMinuteOrHour = ['5', 'h'].includes(period);
-        const isDayOrMonth = ['d', 'm'].includes(period);
-        const isYear = period === 'y';
+        // 获取当前周期目标单位
         const targetUnit = periodUnitMap[period] || 'MiB';
 
-        // 生成表头单位映射
-        function fixHeader(line) {
-            // 只处理含有单位的表头
-            // 例如："小时\t接收(MiB)\t发送(MiB)\t总计(MiB)\t平均速率"
-            return line
-                .replace(/(接收|发送|总计)\((MiB|GiB|TiB)\)/g, `$1(${targetUnit})`)
-                .replace(/(接收|发送|总计)\b(?!\()/g, `$1(${targetUnit})`); // 兜底处理无单位的表头
+        // 强制生成标准表头（不依赖原始内容）
+        function forceHeader(line) {
+            // 判断表头类型
+            if (line.includes('时间')) {
+                return `时间\t接收(${targetUnit})\t发送(${targetUnit})\t总计(${targetUnit})\t平均速率`;
+            } else if (line.includes('小时')) {
+                return `小时\t接收(${targetUnit})\t发送(${targetUnit})\t总计(${targetUnit})\t平均速率`;
+            } else if (line.includes('日期')) {
+                return `日期\t接收(${targetUnit})\t发送(${targetUnit})\t总计(${targetUnit})\t平均速率`;
+            } else if (line.includes('月份')) {
+                return `月份\t接收(${targetUnit})\t发送(${targetUnit})\t总计(${targetUnit})\t平均速率`;
+            } else if (line.includes('年份')) {
+                return `年份\t接收(${targetUnit})\t发送(${targetUnit})\t总计(${targetUnit})\t平均速率`;
+            }
+            return line;
         }
 
         lines = lines.map((line, idx) => {
             // 跳过分隔线、空行和“预计”行
             if (line.includes('---') || !line.trim() || line.includes('预计')) return line;
-            // 处理表头（含“接收”且有“时间”、“小时”、“日期”、“月份”、“年份”之一在前）
+            // 强制修正表头
             if (line.includes('接收') &&
                 (line.includes('时间') || line.includes('小时') || line.includes('日期') || line.includes('月份') || line.includes('年份'))
             ) {
-                // 在“接收”前插入 |
-                let fixed = line.replace(/(时间\s+|小时\s+|日期\s+|月份\s+|年份\s+)(接收)/, '$1| $2');
-                // 修正单位
-                return fixHeader(fixed);
+                return forceHeader(line);
             }
             // 处理数据行分隔符
             // 时间（分钟/小时）
@@ -333,7 +335,7 @@ app.get('/api/stats/:interface/:period', (req, res) => {
             line = line.replace(/^(\s*\d{4})(\s+)/, '$1 |$2');
 
             // 单位归一化处理
-            if (isMinuteOrHour || isDayOrMonth || isYear) {
+            if (['5', 'h', 'd', 'm', 'y'].includes(period)) {
                 // 用 | 分割，找到接收/发送/总计字段
                 let parts = line.split('|');
                 if (parts.length < 5) return line; // 不处理异常行
