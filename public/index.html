@@ -825,8 +825,8 @@
                         data: {
                             labels,
                             datasets: [
-                                { label: `接收(${unit})`, data: rx, backgroundColor: period === 'y' ? '#4a90e2' : undefined, borderColor: '#4a90e2', backgroundColor: period !== 'y' ? 'rgba(74,144,226,0.1)' : undefined, tension: 0.3, fill: period !== 'y' },
-                                { label: `发送(${unit})`, data: tx, backgroundColor: period === 'y' ? '#f39c12' : undefined, borderColor: '#f39c12', backgroundColor: period !== 'y' ? 'rgba(243,156,18,0.1)' : undefined, tension: 0.3, fill: period !== 'y' }
+                                { label: `接收(${unit})`, data: rx, backgroundColor: period === 'y' ? '#4a90e2' : 'rgba(74,144,226,0.1)', borderColor: '#4a90e2', tension: 0.3, fill: period !== 'y' },
+                                { label: `发送(${unit})`, data: tx, backgroundColor: period === 'y' ? '#f39c12' : 'rgba(243,156,18,0.1)', borderColor: '#f39c12', tension: 0.3, fill: period !== 'y' }
                             ]
                         },
                         options: {
