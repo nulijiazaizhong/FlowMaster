@@ -639,11 +639,14 @@
             color: #f1f5fa;
             border-bottom: 2px solid rgba(255,255,255,0.12);
         }
+        body.dark .table tbody tr {
+            background-color: #181b20 !important;
+        }
         body.dark .table-striped > tbody > tr:nth-of-type(odd) {
-            background-color: #23272e;
+            background-color: #23272e !important;
         }
         body.dark .table-striped > tbody > tr:nth-of-type(even) {
-            background-color: #1a1a1a;
+            background-color: #181b20 !important;
         }
         body.dark .table tbody td, body.dark .table tbody th {
             color: #fff;
@@ -652,7 +655,7 @@
             border-color: rgba(255,255,255,0.08);
         }
         body.dark .table-hover > tbody > tr:hover {
-            background-color: #2d323a;
+            background-color: #23272e !important;
         }
         body.dark .table thead {
             border-bottom: 2px solid rgba(255,255,255,0.12);
@@ -708,6 +711,10 @@
         }
         body.dark ::-webkit-scrollbar-thumb {
             background: #444;
+        }
+        body.dark .table td, body.dark .table th {
+            background-color: inherit !important;
+            color: #f1f5fa;
         }
     </style>
     <!-- 追加body.dark样式覆盖，确保主题切换立即生效 -->
