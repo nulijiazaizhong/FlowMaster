@@ -787,7 +787,8 @@
                 renderMinuteChart() {
                     if (this._minuteChart) this._minuteChart.destroy();
                     const ctx = this.$refs.minuteChart;
-                    const unit = this.minuteStats.unit || 'MiB';
+                    // 5分钟卡片单位固定为MiB
+                    const unit = 'MiB';
                     const { labels, rx, tx } = this.parseStatData(this.minuteStats.data, unit);
                     if (!labels.length) return;
                     this._minuteChart = new Chart(ctx, {
@@ -810,7 +811,11 @@
                     if (!this._statCharts) this._statCharts = [];
                     if (this._statCharts[index]) this._statCharts[index].destroy();
                     const ctx = this.$refs['statChart' + index];
-                    const unit = this.stats[index].unit || 'MiB';
+                    // 根据周期强制单位
+                    let unit = 'MiB';
+                    const period = this.stats[index].period;
+                    if (period === 'd' || period === 'm') unit = 'GiB';
+                    if (period === 'y') unit = 'TiB';
                     const { labels, rx, tx } = this.parseStatData(this.stats[index].data, unit);
                     if (!labels.length) return;
                     this._statCharts[index] = new Chart(ctx, {
