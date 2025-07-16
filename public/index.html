@@ -792,7 +792,14 @@
                     if (this._minuteChart) this._minuteChart.destroy();
                     const ctx = this.$refs.minuteChart;
                     // 修复自动刷新导致canvas高度异常
-                    if (ctx) ctx.height = 180;
+                    if (ctx) {
+                        ctx.height = 180;
+                        // 新增：动态设置canvas宽度为父容器宽度
+                        const parent = ctx.parentElement;
+                        if (parent) {
+                            ctx.width = parent.clientWidth;
+                        }
+                    }
                     // 5分钟卡片单位固定为MiB
                     const unit = 'MiB';
                     const { labels, rx, tx } = this.parseStatData(this.minuteStats.data, unit);
@@ -818,7 +825,14 @@
                     if (this._statCharts[index]) this._statCharts[index].destroy();
                     const ctx = this.$refs['statChart' + index];
                     // 修复自动刷新导致canvas高度异常
-                    if (ctx) ctx.height = 180;
+                    if (ctx) {
+                        ctx.height = 180;
+                        // 新增：动态设置canvas宽度为父容器宽度
+                        const parent = ctx.parentElement;
+                        if (parent) {
+                            ctx.width = parent.clientWidth;
+                        }
+                    }
                     // 根据周期强制单位
                     let unit = 'MiB';
                     const period = this.stats[index].period;
@@ -841,6 +855,17 @@
                             responsive: true,
                             plugins: { legend: { display: true }, tooltip: { enabled: true } },
                             scales: { y: { beginAtZero: true, title: { display: true, text: unit } } }
+                        }
+                    });
+                },
+                // 新增：统一重绘所有图表（窗口resize时调用）
+                resizeAllCharts() {
+                    // 重新渲染分钟图表
+                    this.$nextTick(() => {
+                        this.renderMinuteChart();
+                        // 重新渲染所有统计图表
+                        if (this.stats && this.stats.length) {
+                            this.stats.forEach((stat, idx) => this.renderStatChart(idx));
                         }
                     });
                 },
@@ -1015,6 +1040,8 @@
                 this.loadInterfaces();
                 this.startAutoRefresh();
                 this.loadVersion();
+                // 新增：监听窗口resize事件
+                window.addEventListener('resize', this.resizeAllCharts);
             },
             beforeUnmount() {
                 if (this.refreshInterval) {
@@ -1022,6 +1049,8 @@
                 }
                 if (this._minuteChart) this._minuteChart.destroy();
                 if (this._statCharts) this._statCharts.forEach(chart => chart.destroy());
+                // 新增：移除resize事件监听
+                window.removeEventListener('resize', this.resizeAllCharts);
             }
         });
 
