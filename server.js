@@ -264,18 +264,32 @@ app.get('/api/stats/:interface/:period', (req, res) => {
                 break;
         }
 
-        // 优化：无论数据行是否已有 |，都强制在“时间”和“接收”之间插入 |
+        // 统一处理所有周期（分钟、小时、日、月、年）：
         lines = lines.map((line, idx) => {
             // 跳过分隔线和空行
             if (line.includes('---') || !line.trim()) return line;
-            // 处理表头（含“接收”且“时间”在前）
-            if (line.includes('接收') && line.includes('时间')) {
+            // 处理表头（含“接收”且有“时间”、“小时”、“日期”、“月份”、“年份”之一在前）
+            if (line.includes('接收') &&
+                (line.includes('时间') || line.includes('小时') || line.includes('日期') || line.includes('月份') || line.includes('年份'))
+            ) {
                 // 在“接收”前插入 |
-                return line.replace(/(时间\s+)(接收)/, '$1| $2');
+                return line.replace(/(时间\s+|小时\s+|日期\s+|月份\s+|年份\s+)(接收)/, '$1| $2');
             }
-            // 处理数据行：在“时间”字段后第一个空白处插入 |
+            // 处理数据行：在“时间/小时/日期/月份/年份”字段后第一个空白处插入 |
             // 例：18:55    251.78 MiB ... => 18:55 | 251.78 MiB ...
-            return line.replace(/^(\s*\d{2}:\d{2})(\s+)/, '$1 |$2');
+            //      2025-07-05   27.05 GiB ... => 2025-07-05 | 27.05 GiB ...
+            //      08:00   1.82 GiB ... => 08:00 | 1.82 GiB ...
+            //      2025-07   ... => 2025-07 | ...
+            //      2025      ... => 2025 | ...
+            return line
+                // 时间（分钟/小时）
+                .replace(/^(\s*\d{2}:\d{2})(\s+)/, '$1 |$2')
+                // 日期（YYYY-MM-DD）
+                .replace(/^(\s*\d{4}-\d{2}-\d{2})(\s+)/, '$1 |$2')
+                // 月份（YYYY-MM）
+                .replace(/^(\s*\d{4}-\d{2})(\s+)/, '$1 |$2')
+                // 年份（YYYY）
+                .replace(/^(\s*\d{4})(\s+)/, '$1 |$2');
         });
 
         res.json({ data: lines });
