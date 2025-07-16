@@ -466,7 +466,7 @@
                         </div>
                         <div class="card-body">
                             <div class="chart-container" style="height:180px;">
-                                <canvas ref="minuteChart" style="width:100%;height:100%;"></canvas>
+                                <canvas ref="minuteChart" style="width:100%;height:180px;"></canvas>
                             </div>
                             <div v-html="renderTableHtml(formatTableDataUnified(minuteStats.data, minuteStats.unit, minuteStats.factor), minuteStats.unit)"></div>
                         </div>
@@ -480,7 +480,7 @@
                         </div>
                         <div class="card-body">
                             <div class="chart-container" style="height:180px;">
-                                <canvas :ref="'statChart' + index" style="width:100%;height:100%;"></canvas>
+                                <canvas :ref="'statChart' + index" style="width:100%;height:180px;"></canvas>
                             </div>
                             <div v-html="renderTableHtml(formatTableDataUnified(stat.data, stat.unit, stat.factor), stat.unit)"></div>
                         </div>
@@ -646,7 +646,8 @@
                     dateRangeStats: {
                         data: [],
                         loading: false
-                    }
+                    },
+                    observers: {}
                 }
             },
             computed: {
@@ -791,8 +792,8 @@
                 renderMinuteChart() {
                     if (this._minuteChart) this._minuteChart.destroy();
                     const ctx = this.$refs.minuteChart;
-                    // 修复自动刷新导致canvas高度异常
-                    if (ctx) ctx.height = 180;
+                    if (!ctx) return;
+                    // Chart.js会自动适应canvas的CSS宽度
                     // 5分钟卡片单位固定为MiB
                     const unit = 'MiB';
                     const { labels, rx, tx } = this.parseStatData(this.minuteStats.data, unit);
@@ -812,13 +813,14 @@
                             scales: { y: { beginAtZero: true, title: { display: true, text: unit } } }
                         }
                     });
+                    // 设置ResizeObserver
+                    this.setupResizeObserver('minuteChart', this.renderMinuteChart);
                 },
                 renderStatChart(index) {
                     if (!this._statCharts) this._statCharts = [];
                     if (this._statCharts[index]) this._statCharts[index].destroy();
                     const ctx = this.$refs['statChart' + index];
-                    // 修复自动刷新导致canvas高度异常
-                    if (ctx) ctx.height = 180;
+                    if (!ctx) return;
                     // 根据周期强制单位
                     let unit = 'MiB';
                     const period = this.stats[index].period;
@@ -826,7 +828,6 @@
                     if (period === 'y') unit = 'TiB';
                     const { labels, rx, tx } = this.parseStatData(this.stats[index].data, unit);
                     if (!labels.length) return;
-                    // 年统计用柱状图，其余用折线图
                     const chartType = period === 'y' ? 'bar' : 'line';
                     this._statCharts[index] = new Chart(ctx, {
                         type: chartType,
@@ -843,6 +844,8 @@
                             scales: { y: { beginAtZero: true, title: { display: true, text: unit } } }
                         }
                     });
+                    // 设置ResizeObserver
+                    this.setupResizeObserver('statChart' + index, () => this.renderStatChart(index));
                 },
                 async loadStats(stat, index) {
                     stat.loading = true;
@@ -1000,6 +1003,21 @@
                     }
                     html += '</tbody></table>';
                     return html;
+                },
+                setupResizeObserver(refName, renderFn) {
+                    // 清理旧observer
+                    if (!this.observers) this.observers = [];
+                    if (this.observers[refName]) {
+                        this.observers[refName].disconnect();
+                        delete this.observers[refName];
+                    }
+                    const el = this.$refs[refName]?.parentElement;
+                    if (!el) return;
+                    const observer = new ResizeObserver(() => {
+                        renderFn();
+                    });
+                    observer.observe(el);
+                    this.observers[refName] = observer;
                 }
             },
             watch: {
@@ -1022,6 +1040,10 @@
                 }
                 if (this._minuteChart) this._minuteChart.destroy();
                 if (this._statCharts) this._statCharts.forEach(chart => chart.destroy());
+                if (this.observers) {
+                    Object.values(this.observers).forEach(obs => obs.disconnect());
+                    this.observers = [];
+                }
             }
         });
 
