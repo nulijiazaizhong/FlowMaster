@@ -624,6 +624,64 @@
             }
         }
     </style>
+    <!-- 追加body.dark样式覆盖，确保主题切换立即生效 -->
+    <style>
+        body.dark {
+            background-color: #1a1a1a;
+            color: #fff;
+        }
+        body.dark .card {
+            background-color: #2d2d2d;
+            border-color: #3d3d3d;
+        }
+        body.dark .card-header {
+            background-color: #252525;
+            border-bottom-color: #3d3d3d;
+        }
+        body.dark pre {
+            background: #252525;
+            color: #fff;
+        }
+        body.dark .text-muted {
+            color: #a0a0a0 !important;
+        }
+        body.dark .version-badge {
+            background-color: #2d2d2d;
+            border-color: #3d3d3d;
+            color: #a0a0a0;
+        }
+        body.dark .form-select {
+            background-color: #2d2d2d;
+            color: #fff;
+            border-color: #3d3d3d;
+        }
+        body.dark .form-select:focus {
+            background-color: #2d2d2d;
+            color: #fff;
+            border-color: #0d6efd;
+        }
+        body.dark .form-check-input {
+            background-color: #2d2d2d;
+            border-color: #3d3d3d;
+        }
+        body.dark .form-check-input:checked {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+        }
+        body.dark .footer {
+            background-color: #1a1a1a;
+            border-top-color: #2d2d2d;
+        }
+        body.dark .footer-text,
+        body.dark .copyright-text,
+        body.dark .author-link {
+            color: #a0a0a0;
+        }
+        body.dark .author-link:hover,
+        body.dark .github-link:hover {
+            color: #fff;
+        }
+    </style>
 
     <script>
         const app = Vue.createApp({
