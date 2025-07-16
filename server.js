@@ -50,6 +50,15 @@ const translations = {
     'last month': '最近30天'
 };
 
+// 周期到单位的映射表
+const periodUnitMap = {
+    '5': 'MiB',   // 5分钟
+    'h': 'MiB',  // 小时
+    'd': 'GiB',  // 天
+    'm': 'GiB',  // 月
+    'y': 'TiB'   // 年
+};
+
 // 翻译函数
 function translateOutput(text) {
     let lines = text.split('\n');
@@ -275,12 +284,12 @@ app.get('/api/stats/:interface/:period', (req, res) => {
             if (unit === 'GIB') num *= 1024;
             if (unit === 'TIB') num *= 1024 * 1024;
             // 目标单位
-            if (targetUnit === 'TiB') {
-                num = num / (1024 * 1024);
-                return num.toFixed(2) + ' TiB';
-            } else if (targetUnit === 'GiB') {
+            if (targetUnit === 'GiB') {
                 num = num / 1024;
                 return num.toFixed(2) + ' GiB';
+            } else if (targetUnit === 'TiB') {
+                num = num / (1024 * 1024);
+                return num.toFixed(2) + ' TiB';
             } else {
                 return num.toFixed(2) + ' MiB';
             }
@@ -288,11 +297,18 @@ app.get('/api/stats/:interface/:period', (req, res) => {
 
         // 判断周期类型
         const isMinuteOrHour = ['5', 'h'].includes(period);
-        const isDayMonth = ['d', 'm'].includes(period);
-        const isYear = ['y'].includes(period);
-        let targetUnit = 'MiB';
-        if (isDayMonth) targetUnit = 'GiB';
-        if (isYear) targetUnit = 'TiB';
+        const isDayOrMonth = ['d', 'm'].includes(period);
+        const isYear = period === 'y';
+        const targetUnit = periodUnitMap[period] || 'MiB';
+
+        // 生成表头单位映射
+        function fixHeader(line) {
+            // 只处理含有单位的表头
+            // 例如："小时\t接收(MiB)\t发送(MiB)\t总计(MiB)\t平均速率"
+            return line
+                .replace(/(接收|发送|总计)\((MiB|GiB|TiB)\)/g, `$1(${targetUnit})`)
+                .replace(/(接收|发送|总计)\b(?!\()/g, `$1(${targetUnit})`); // 兜底处理无单位的表头
+        }
 
         lines = lines.map((line, idx) => {
             // 跳过分隔线、空行和“预计”行
@@ -301,13 +317,10 @@ app.get('/api/stats/:interface/:period', (req, res) => {
             if (line.includes('接收') &&
                 (line.includes('时间') || line.includes('小时') || line.includes('日期') || line.includes('月份') || line.includes('年份'))
             ) {
-                // 在“接收”前插入 |，并动态替换单位
-                let unitLabel = targetUnit;
-                // 替换表头单位
-                return line.replace(/(时间\s+|小时\s+|日期\s+|月份\s+|年份\s+)(接收)(\s*)\S*/,
-                    `$1| $2(${unitLabel})`)
-                    .replace(/发送\s*\S*/, `发送(${unitLabel})`)
-                    .replace(/总计\s*\S*/, `总计(${unitLabel})`);
+                // 在“接收”前插入 |
+                let fixed = line.replace(/(时间\s+|小时\s+|日期\s+|月份\s+|年份\s+)(接收)/, '$1| $2');
+                // 修正单位
+                return fixHeader(fixed);
             }
             // 处理数据行分隔符
             // 时间（分钟/小时）
@@ -320,7 +333,7 @@ app.get('/api/stats/:interface/:period', (req, res) => {
             line = line.replace(/^(\s*\d{4})(\s+)/, '$1 |$2');
 
             // 单位归一化处理
-            if (isMinuteOrHour || isDayMonth || isYear) {
+            if (isMinuteOrHour || isDayOrMonth || isYear) {
                 // 用 | 分割，找到接收/发送/总计字段
                 let parts = line.split('|');
                 if (parts.length < 5) return line; // 不处理异常行
