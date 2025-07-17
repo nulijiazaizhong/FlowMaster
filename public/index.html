@@ -1050,9 +1050,9 @@
                         ctx.width = parent.clientWidth;
                     }
                     
-                    // 准备图表数据（最近5分钟）
-                    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
-                    const chartData = this.realtimeData.filter(item => item.timestamp >= fiveMinutesAgo);
+                    // 准备图表数据（最近1分钟）
+                    const oneMinuteAgo = Date.now() - 1 * 60 * 1000;
+                    const chartData = this.realtimeData.filter(item => item.timestamp >= oneMinuteAgo);
                     
                     const labels = chartData.map(item => item.time);
                     const receiveSpeeds = chartData.map(item => item.receiveSpeed);
