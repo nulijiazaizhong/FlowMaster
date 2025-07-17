@@ -110,6 +110,61 @@
                 </div>
             </div>
 
+            <!-- 新增：缓存状态和系统性能显示 -->
+            <div class="row mb-3" v-cloak>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header py-2">
+                            <h6 class="card-title mb-0">缓存状态</h6>
+                        </div>
+                        <div class="card-body py-2">
+                            <div class="row text-center">
+                                <div class="col-3">
+                                    <div class="small text-muted">命中率</div>
+                                    <div class="fw-bold" :class="cacheStats.hitRate > '50%' ? 'text-success' : 'text-warning'">{{cacheStats.hitRate}}</div>
+                                </div>
+                                <div class="col-3">
+                                    <div class="small text-muted">缓存条目</div>
+                                    <div class="fw-bold">{{cacheStats.size}}/{{cacheStats.maxSize}}</div>
+                                </div>
+                                <div class="col-3">
+                                    <div class="small text-muted">内存使用</div>
+                                    <div class="fw-bold">{{cacheStats.memoryUsage}}</div>
+                                </div>
+                                <div class="col-3">
+                                    <button class="btn btn-sm btn-outline-secondary" @click="clearCache" title="清空缓存">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header py-2">
+                            <h6 class="card-title mb-0">系统性能</h6>
+                        </div>
+                        <div class="card-body py-2">
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <div class="small text-muted">响应时间</div>
+                                    <div class="fw-bold" :class="performance.lastResponseTime < 100 ? 'text-success' : 'text-warning'">{{performance.lastResponseTime}}ms</div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="small text-muted">平均响应</div>
+                                    <div class="fw-bold">{{performance.averageResponseTime.toFixed(0)}}ms</div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="small text-muted">请求次数</div>
+                                    <div class="fw-bold">{{performance.requestCount}}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="card mb-3" v-cloak>
                 <div class="card-body py-2">
                     <div class="row g-2 align-items-end">
@@ -247,7 +302,29 @@
                     },
                     isDarkMode: false,
                     realtimeData: [], // 存储最近20条实时数据记录
-                    debugMode: false // 调试模式开关
+                    debugMode: false, // 调试模式开关
+                    // 新增：缓存状态相关字段
+                    cacheStats: {
+                        hits: 0,
+                        misses: 0,
+                        hitRate: '0%',
+                        size: 0,
+                        maxSize: 100,
+                        memoryUsage: '0MB',
+                        maxMemory: '50MB'
+                    },
+                    systemMemory: {
+                        rss: '0MB',
+                        heapTotal: '0MB',
+                        heapUsed: '0MB',
+                        external: '0MB',
+                        cacheMemory: '0MB'
+                    },
+                    performance: {
+                        lastResponseTime: 0,
+                        averageResponseTime: 0,
+                        requestCount: 0
+                    }
                 }
             },
             computed: {
@@ -259,7 +336,9 @@
             methods: {
                 async loadInterfaces() {
                     try {
-                        const response = await axios.get('/api/interfaces');
+                        const response = await this.measurePerformance(() => 
+                            axios.get('/api/interfaces')
+                        );
                         // 对接口列表进行排序
                         this.interfaces = response.data.interfaces.sort((a, b) => {
                             // 定义接口优先级函数
@@ -299,7 +378,14 @@
                             this.loadAllStats();
                         }
                     } catch (error) {
-                        this.error = '无法获取网络接口列表: ' + (error.response?.data?.error || error.message);
+                        const errorMsg = error.response?.data?.error || error.message;
+                        this.error = `无法获取网络接口列表: ${errorMsg}`;
+                        console.error('接口列表加载失败:', error);
+                        
+                        // 如果是缓存相关错误，提供特殊提示
+                        if (errorMsg.includes('cache') || errorMsg.includes('缓存')) {
+                            this.error += (缓存系统可能存在问题)
+                        }
                     }
                 },
                 parseStatData(data, unit = 'MiB') {
@@ -701,6 +787,9 @@
                     this.loadMinuteStats();
                     this.stats.forEach((stat, idx) => this.loadStats(stat, idx));
                     this.updateLastUpdateTime();
+                    // 新增：加载缓存和系统状态
+                    this.loadCacheStats();
+                    this.loadSystemMemory();
                 },
                 updateLastUpdateTime() {
                     const now = new Date();
@@ -723,6 +812,12 @@
                         setInterval(() => {
                             this.stats.forEach(stat => this.loadStats(stat));
                         }, 60000);
+
+                        // 新增：定期更新缓存和系统状态（每30秒）
+                        setInterval(() => {
+                            this.loadCacheStats();
+                            this.loadSystemMemory();
+                        }, 30000);
                     }
                 },
                 async loadVersion() {
@@ -864,6 +959,54 @@
                     if (maxSpeed >= 1024 * 1024) return 'Mb/s';
                     if (maxSpeed >= 1024) return 'Kb/s';
                     return 'b/s';
+                },
+                // 新增：获取缓存统计信息
+                async loadCacheStats() {
+                    try {
+                        const response = await axios.get('/api/cache/stats');
+                        this.cacheStats = response.data;
+                    } catch (error) {
+                        console.error('获取缓存统计失败:', error);
+                    }
+                },
+                // 新增：获取系统内存信息
+                async loadSystemMemory() {
+                    try {
+                        const response = await axios.get('/api/system/memory');
+                        this.systemMemory = response.data;
+                    } catch (error) {
+                        console.error('获取系统内存信息失败:', error);
+                    }
+                },
+                // 新增：清空缓存
+                async clearCache() {
+                    try {
+                        await axios.post('/api/cache/clear');
+                        this.loadCacheStats(); // 重新加载统计信息
+                        console.log('缓存已清空');
+                    } catch (error) {
+                        console.error('清空缓存失败:', error);
+                    }
+                },
+                // 新增：性能监控包装器
+                async measurePerformance(apiCall) {
+                    const startTime = Date.now();
+                    try {
+                        const result = await apiCall();
+                        const responseTime = Date.now() - startTime;
+                        
+                        // 更新性能统计
+                        this.performance.lastResponseTime = responseTime;
+                        this.performance.requestCount++;
+                        this.performance.averageResponseTime = 
+                            (this.performance.averageResponseTime * (this.performance.requestCount - 1) + responseTime) / this.performance.requestCount;
+                        
+                        return result;
+                    } catch (error) {
+                        const responseTime = Date.now() - startTime;
+                        this.performance.lastResponseTime = responseTime;
+                        throw error;
+                    }
                 }
             },
             watch: {
