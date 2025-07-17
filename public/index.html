@@ -167,60 +167,6 @@
         }
 
         /* 添加暗色模式全局样式 */
-        @media (prefers-color-scheme: dark) {
-            body {
-                background-color: #1a1a1a;
-                color: #ffffff;
-            }
-
-            .card {
-                background-color: #2d2d2d;
-                border-color: #3d3d3d;
-            }
-
-            .card-header {
-                background-color: #252525;
-                border-bottom-color: #3d3d3d;
-            }
-
-            pre {
-                background: #252525;
-                color: #ffffff;
-            }
-
-            .text-muted {
-                color: #a0a0a0 !important;
-            }
-
-            .version-badge {
-                background-color: #2d2d2d;
-                border-color: #3d3d3d;
-                color: #a0a0a0;
-            }
-
-            .form-select {
-                background-color: #2d2d2d;
-                color: #ffffff;
-                border-color: #3d3d3d;
-            }
-
-            .form-select:focus {
-                background-color: #2d2d2d;
-                color: #ffffff;
-                border-color: #0d6efd;
-            }
-
-            .form-check-input {
-                background-color: #2d2d2d;
-                border-color: #3d3d3d;
-            }
-
-            .form-check-input:checked {
-                background-color: #0d6efd;
-                border-color: #0d6efd;
-            }
-        }
-
         /* 添加更好的加载状态样式 */
         .loading::after {
             content: "";
@@ -311,20 +257,6 @@
         }
         
         /* 暗色模式支持 */
-        @media (prefers-color-scheme: dark) {
-            .date-query .form-control {
-                --input-bg: #2d2d2d;
-                --input-color: #ffffff;
-                --input-border: #3d3d3d;
-            }
-            
-            .date-query .form-control:focus {
-                background-color: var(--input-bg);
-                color: var(--input-color);
-                border-color: #0d6efd;
-            }
-        }
-
         /* 调整顶部布局样式 */
         .refresh-control {
             min-width: 150px;
@@ -1191,19 +1123,15 @@
                     localStorage.setItem('theme', this.isDarkMode ? 'dark' : 'light');
                 },
                 applyThemeFromPreference() {
-                    // 优先用户选择，否则跟随系统
+                    // 优先用户选择，默认浅色模式
                     const userTheme = localStorage.getItem('theme');
                     if (userTheme === 'dark') {
                         this.isDarkMode = true;
                         document.body.classList.add('dark');
-                    } else if (userTheme === 'light') {
+                    } else {
+                        // 默认浅色模式，移除系统主题跟随
                         this.isDarkMode = false;
                         document.body.classList.remove('dark');
-                    } else {
-                        // 跟随系统
-                        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-                        this.isDarkMode = prefersDark;
-                        document.body.classList.toggle('dark', prefersDark);
                     }
                 }
             },
@@ -1221,16 +1149,6 @@
                 this.startAutoRefresh();
                 this.loadVersion();
                 this.applyThemeFromPreference();
-                // 监听系统主题变化（如未手动选择时）
-                if (window.matchMedia) {
-                    this._themeListener = (e) => {
-                        if (!localStorage.getItem('theme')) {
-                            this.isDarkMode = e.matches;
-                            document.body.classList.toggle('dark', e.matches);
-                        }
-                    };
-                    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', this._themeListener);
-                }
                 // 新增：监听窗口resize事件
                 window.addEventListener('resize', this.resizeAllCharts);
             },
@@ -1242,10 +1160,6 @@
                 if (this._statCharts) this._statCharts.forEach(chart => chart.destroy());
                 // 新增：移除resize事件监听
                 window.removeEventListener('resize', this.resizeAllCharts);
-                // 移除主题监听
-                if (window.matchMedia && this._themeListener) {
-                    window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', this._themeListener);
-                }
             }
         });
 
