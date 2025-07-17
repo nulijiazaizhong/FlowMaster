@@ -612,6 +612,69 @@ app.get('/api/stats/:interface/range/:startDate/:endDate', (req, res) => {
         let translatedOutput = translateOutput(stdout);
         let lines = translatedOutput.split('\n');
 
+        // 单位归一化辅助函数
+        function normalizeValue(val, targetUnit) {
+            if (!val) return val;
+            const match = val.match(/([\d.]+)\s*(MiB|GiB|TiB)?/i);
+            if (!match) return val;
+            const num = parseFloat(match[1]);
+            const unit = (match[2] || 'MiB').toUpperCase();
+            
+            // 统一换算为MiB
+            let normalizedNum = num;
+            if (unit === 'GIB') normalizedNum *= 1024;
+            if (unit === 'TIB') normalizedNum *= 1024 * 1024;
+            
+            // 目标单位
+            if (targetUnit === 'GiB') {
+                normalizedNum = normalizedNum / 1024;
+                return `${normalizedNum.toFixed(2)} GiB`;
+            } else if (targetUnit === 'TiB') {
+                normalizedNum = normalizedNum / (1024 * 1024);
+                return `${normalizedNum.toFixed(2)} TiB`;
+            } else {
+                return `${normalizedNum.toFixed(2)} MiB`;
+            }
+        }
+
+        // 指定日期查询固定使用GiB单位
+        const targetUnit = 'GiB';
+
+        // 强制生成标准表头（5列格式）
+        function forceHeader(line) {
+            if (line.includes('日期')) {
+                return `日期\t| 接收(${targetUnit})\t| 发送(${targetUnit})\t| 总计(${targetUnit})\t| 平均速率`;
+            }
+            return line;
+        }
+
+        lines = lines.map((line, idx) => {
+            // 跳过分隔线、空行
+            if (line.includes('---') || !line.trim()) return line;
+            // 强制修正表头
+            if (line.includes('接收') && line.includes('日期')) {
+                return forceHeader(line);
+            }
+            // 处理数据行分隔符
+            // 日期（YYYY-MM-DD）
+            line = line.replace(/^(\s*\d{4}-\d{2}-\d{2})(\s+)/, '$1 |$2');
+
+            // 单位归一化处理
+            // 用 | 分割，找到接收/发送/总计字段
+            let parts = line.split('|');
+            if (parts.length >= 4) {
+                // 只处理数据部分（去除首尾空格）
+                let rx = parts[1].trim();
+                let tx = parts[2].trim();
+                let total = parts[3].trim();
+                parts[1] = ' ' + normalizeValue(rx, targetUnit);
+                parts[2] = ' ' + normalizeValue(tx, targetUnit);
+                parts[3] = ' ' + normalizeValue(total, targetUnit);
+                return parts.join('|');
+            }
+            return line;
+        }).filter(Boolean);
+
         const result = { data: lines };
         
         // 缓存结果（10分钟）
