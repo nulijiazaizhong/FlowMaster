@@ -329,11 +329,7 @@
                         <span v-if="isDarkMode">🌙</span>
                         <span v-else>☀️</span>
                     </button>
-                    <!-- 调试模式开关 -->
-                    <button class="btn btn-sm ms-2" :class="debugMode ? 'btn-warning' : 'btn-outline-warning'" @click="toggleDebugMode" :aria-label="debugMode ? '关闭调试' : '开启调试'" style="vertical-align:middle;">
-                        <span v-if="debugMode">🐛</span>
-                        <span v-else>🔧</span>
-                    </button>
+                    <!-- 调试模式按钮已移除 -->
                     <div class="update-time" v-if="lastUpdateTime">
                         最后更新: {{lastUpdateTime}}
                     </div>
@@ -1340,13 +1336,9 @@
                         this.isDarkMode = false;
                         document.body.classList.remove('dark');
                     }
-                    // 应用调试模式
+                    // 应用调试模式，默认关闭
                     const userDebugMode = localStorage.getItem('debugMode');
-                    if (userDebugMode === 'true') {
-                        this.debugMode = true;
-                    } else {
-                        this.debugMode = false;
-                    }
+                    this.debugMode = (userDebugMode === 'true');
                 }
             },
             watch: {
