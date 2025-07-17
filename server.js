@@ -59,6 +59,40 @@ const periodUnitMap = {
     'y': 'TiB'   // 年
 };
 
+// 实时统计单位转换函数
+function normalizeRealtimeValue(val) {
+    if (!val) return val;
+    
+    // 匹配各种速度单位格式：数值 + 单位
+    // 支持：b/秒、kb/秒、Mb/秒、Gb/秒、KiB/s、MiB/s、GiB/s等
+    const match = val.match(/([\d.]+)\s*(kmg]?bi]?bt]?\/秒|kmg]?[bi]?[bt]?\/s)/i);
+    if (!match) return val;
+    
+    let num = parseFloat(match[1]);
+    let unit = match[2].toLowerCase();
+    
+    // 转换为kb/秒
+    if (unit.includes('b/秒') || unit.includes('b/s')) {
+        // 已经是b/秒，转换为kb/秒
+        num = num / 1000;
+    } else if (unit.includes('kb/秒') || unit.includes('kbit/s') || unit.includes('kib/s')) {
+        // 已经是kb/秒，保持不变
+        num = num;
+    } else if (unit.includes('mb/秒') || unit.includes('mbit/s') || unit.includes('mib/s')) {
+        // Mb/秒转换为kb/秒
+        num = num * 1000;
+    } else if (unit.includes('gb/秒') || unit.includes('gbit/s') || unit.includes('gib/s')) {
+        // Gb/秒转换为kb/秒
+        num = num * 1000 * 1000;
+    } else {
+        // 未知单位，保持原值
+        return val;
+    }
+    
+    // 格式化输出，保留2位小数
+    return num.toFixed(2) + ' kb/秒';
+}
+
 // 翻译函数
 function translateOutput(text) {
     let lines = text.split('\n');
@@ -337,7 +371,7 @@ app.get('/api/stats/:interface/:period', (req, res) => {
             line = line.replace(/^(\s*\d{4})(\s+)/, '$1 |$2');
 
             // 单位归一化处理
-            if (['5', 'h', 'd', 'm', 'y'].includes(period)) {
+            if (['5,h, m', 'y'].includes(period)) {
                 // 用 | 分割，找到接收/发送/总计字段
                 let parts = line.split('|');
                 if (parts.length < 5) return line; // 不处理异常行
@@ -349,6 +383,14 @@ app.get('/api/stats/:interface/:period', (req, res) => {
                 parts[2] = ' ' + normalizeValue(tx, targetUnit);
                 parts[3] = ' ' + normalizeValue(total, targetUnit);
                 return parts.join('|');
+            }
+            // 实时统计单位转换处理
+            if (period === 'l') {
+                // 实时统计格式：接收速度 发送速度 数据包信息
+                // 匹配速度信息并转换单位
+                line = line.replace(/(\d+\.?\d*\s*kmg]?[bi]?[bt]?\/秒)/gi, (match) => {
+                    return normalizeRealtimeValue(match);
+                });
             }
             return line;
         }).filter(Boolean);
