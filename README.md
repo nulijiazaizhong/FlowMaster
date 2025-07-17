@@ -300,7 +300,7 @@ pm2 restart flowmaster进程 #重启flowmaster进程
 
 ```bash
 # 设置端口
-pm2 start server.js --name flowmaster --env PORT=8080
+pm2 start server.js --name flowmaster --env PORT=10089
 
 # 或在 ecosystem.config.js 中配置
 echo 'module.exports = {
@@ -308,7 +308,7 @@ echo 'module.exports = {
     name: "flowmaster",
     script: "server.js",
     env: {
-      PORT: 8080
+      PORT: 10089
     }
   }]
 }' > ecosystem.config.js
