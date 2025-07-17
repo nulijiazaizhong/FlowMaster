@@ -47,48 +47,8 @@ const translations = {
     'last 5 minutes': '最近5分钟',
     'last hour': '最近1小时',
     'last day': '最近24小时',
-    'last month': '最近30天',
-    // 添加更多速度单位翻译
-    'bit/s': 'b/秒',
-    'kbit': 'kb',
-    'Mbit': 'Mb',
-    'Gbit': 'Gb',
-    'KiB': 'KB',
-    'MiB': 'MB',
-    'GiB': 'GB'
+    'last month': '最近30天'
 };
-
-// 速度单位转换函数 - 统一转换为 Mb/s
-function normalizeSpeedUnit(text) {
-    // 匹配速度模式：数字 + 单位
-    // 支持 kb/s, Mb/s, Gb/s, b/s 等格式
-    return text.replace(/(\d+\.?\d*)\s*([kmg]?b\/秒)/gi, (match, value, unit) => {
-        let num = parseFloat(value);
-        let normalizedUnit = 'Mb/秒';
-        
-        // 根据单位进行转换
-        switch (unit.toLowerCase()) {
-            case 'b/秒':
-                num = num / 1000000; // b/s -> Mb/s
-                break;
-            case 'kb/秒':
-                num = num / 1000; // kb/s -> Mb/s
-                break;
-            case 'mb/秒':
-                // 已经是 Mb/s，无需转换
-                break;
-            case 'gb/秒':
-                num = num * 1000; // Gb/s -> Mb/s
-                break;
-            default:
-                // 未知单位，保持原值
-                return match;
-        }
-        
-        // 格式化数值，保留2位小数
-        return num.toFixed(2) + ' ' + normalizedUnit;
-    });
-}
 
 // 周期到单位的映射表
 const periodUnitMap = {
@@ -114,12 +74,6 @@ function translateOutput(text) {
         // 特殊处理流量平均值
         if (line.includes('Traffic average for')) {
             return line.replace(/Traffic average for (.+)/, '流量平均值 - $1');
-        }
-
-        // 特殊处理实时统计数据 - 统一速度单位为 Mb/s
-        if (line.includes('接收') || line.includes('发送')) {
-            // 应用速度单位标准化
-            line = normalizeSpeedUnit(line);
         }
 
         // 替换其他常规文本
