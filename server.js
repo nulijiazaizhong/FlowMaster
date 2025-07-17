@@ -252,7 +252,7 @@ function translateOutput(text) {
 
 // 修改时间处理函数
 function filterStatsByTime(lines, period) {
-    const isHeader = true; // 用于标记表头部分
+    let isHeader = true; // 用于标记表头部分
     const headers = []; // 存储表头行
     const currentTime = new Date();
 

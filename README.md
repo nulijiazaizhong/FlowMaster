@@ -126,6 +126,10 @@ pm2 start server.js --name flowmaster
 
 # 保存 PM2 配置
 pm2 save
+
+# 调试启动
+npm install
+node server.js
 ```
 
 #### 6. PM2 管理命令
