@@ -1,0 +1,146 @@
+/* FlowMaster 暗色主题样式 */
+
+body.dark .table {
+    background-color: transparent;
+    color: #f1f5fa;
+    border-color: rgba(255,255,255,0.08);
+}
+body.dark .table-bordered > :not(caption) > * > * {
+    border-color: rgba(255,255,255,0.08);
+}
+body.dark .table thead th, body.dark .table thead td {
+    background-color: #23272e;
+    color: #f1f5fa;
+    border-bottom: 2px solid rgba(255,255,255,0.12);
+}
+body.dark .table tbody tr {
+    background-color: #181b20 !important;
+}
+body.dark .table-striped > tbody > tr:nth-of-type(odd) {
+    background-color: #23272e !important;
+}
+body.dark .table-striped > tbody > tr:nth-of-type(even) {
+    background-color: #181b20 !important;
+}
+body.dark .table tbody td, body.dark .table tbody th {
+    color: #fff;
+}
+body.dark .table th, body.dark .table td {
+    border-color: rgba(255,255,255,0.08);
+}
+body.dark .table-hover > tbody > tr:hover {
+    background-color: #23272e !important;
+}
+body.dark .table thead {
+    border-bottom: 2px solid rgba(255,255,255,0.12);
+}
+body.dark .btn-dark, body.dark .btn-light {
+    background-color: #23272e;
+    color: #fff;
+    border: 1px solid #3d3d3d;
+}
+body.dark .btn-dark:hover, body.dark .btn-light:hover {
+    background-color: #31363f;
+    color: #fff;
+}
+body.dark .form-select {
+    background-color: #23272e;
+    color: #fff;
+    border-color: #3d3d3d;
+}
+body.dark .form-select:focus {
+    background-color: #23272e;
+    color: #fff;
+    border-color: #0d6efd;
+}
+body.dark .form-check-input {
+    background-color: #23272e;
+    border-color: #3d3d3d;
+}
+body.dark .form-check-input:checked {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+body.dark .version-badge {
+    background-color: #23272e;
+    border-color: #3d3d3d;
+    color: #b0b8c1;
+}
+body.dark .footer {
+    background-color: #1a1a1a;
+    border-top-color: #2d2d2d;
+}
+body.dark .footer-text,
+body.dark .copyright-text,
+body.dark .author-link {
+    color: #b0b8c1;
+}
+body.dark .author-link:hover,
+body.dark .github-link:hover {
+    color: #fff;
+}
+body.dark ::-webkit-scrollbar {
+    background: #23272e;
+}
+body.dark ::-webkit-scrollbar-thumb {
+    background: #444;
+}
+body.dark .table td, body.dark .table th {
+    background-color: inherit !important;
+    color: #f1f5fa;
+}
+body.dark {
+    background-color: #1a1a1a;
+    color: #fff;
+}
+body.dark .card {
+    background-color: #2d2d2d;
+    border-color: #3d3d3d;
+}
+body.dark .card-header {
+    background-color: #252525;
+    border-bottom-color: #3d3d3d;
+}
+body.dark pre {
+    background: #252525;
+    color: #fff;
+}
+body.dark .text-muted {
+    color: #a0a0a0 !important;
+}
+body.dark .version-badge {
+    background-color: #2d2d2d;
+    border-color: #3d3d3d;
+    color: #a0a0a0;
+}
+body.dark .form-select {
+    background-color: #2d2d2d;
+    color: #fff;
+    border-color: #3d3d3d;
+}
+body.dark .form-select:focus {
+    background-color: #2d2d2d;
+    color: #fff;
+    border-color: #0d6efd;
+}
+body.dark .form-check-input {
+    background-color: #2d2d2d;
+    border-color: #3d3d3d;
+}
+body.dark .form-check-input:checked {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+body.dark .footer {
+    background-color: #1a1a1a;
+    border-top-color: #2d2d2d;
+}
+body.dark .footer-text,
+body.dark .copyright-text,
+body.dark .author-link {
+    color: #a0a0a0;
+}
+body.dark .author-link:hover,
+body.dark .github-link:hover {
+    color: #fff;
+} 
