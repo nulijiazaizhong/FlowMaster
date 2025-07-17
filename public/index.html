@@ -391,7 +391,12 @@
                             <h5 class="card-title mb-0">实时统计</h5>
                         </div>
                         <div class="card-body">
-                            <pre>{{realtimeStats.data.join('\n')}}</pre>
+                            <!-- 实时流量图表 -->
+                            <div class="chart-container" style="height:200px;margin-bottom:15px;">
+                                <canvas ref="realtimeChart" style="width:100%;height:100%;"></canvas>
+                            </div>
+                            <!-- 实时流量表格 -->
+                            <div ref="realtimeTable" style="max-height:300px;overflow-y:auto;"></div>
                         </div>
                     </div>
                 </div>
@@ -735,7 +740,8 @@
                         data: [],
                         loading: false
                     },
-                    isDarkMode: false
+                    isDarkMode: false,
+                    realtimeData: [] // 存储最近20条实时数据记录
                 }
             },
             computed: {
@@ -981,11 +987,142 @@
                     this.realtimeStats.loading = true;
                     try {
                         const response = await axios.get(`/api/stats/${this.selectedInterface}/l`);
-                        this.realtimeStats.data = response.data.data.filter(line => line.trim());
+                        // 解析实时数据
+                        const rawData = response.data.data;
+                        const parsedData = this.parseRealtimeData(rawData);
+                        
+                        if (parsedData) {
+                            // 添加到历史数据，保持最近20条
+                            this.realtimeData.push(parsedData);
+                            if (this.realtimeData.length > 20) {
+                                this.realtimeData.shift();
+                            }
+                            
+                            // 更新图表和表格
+                            this.$nextTick(() => {
+                                this.renderRealtimeChart();
+                                this.renderRealtimeTable();
+                            });
+                        }
+                        
+                        // 保持原有数据格式用于兼容
+                        this.realtimeStats.data = rawData.filter(line => line.trim());
                     } catch (error) {
                         this.realtimeStats.data = ['错误: ' + (error.response?.data?.error || error.message)];
                     }
                     this.realtimeStats.loading = false;
+                },
+                parseRealtimeData(rawData) {
+                    // 解析实时数据，提取速度和数据包信息
+                    const receiveLine = rawData.find(line => line.includes('接收'));
+                    const sendLine = rawData.find(line => line.includes('发送'));
+                    
+                    if (!receiveLine || !sendLine) return null;
+                    
+                    // 解析接收数据
+                    const receiveMatch = receiveLine.match(/(\d+\.?\d*)\s*([kmg]?b\/秒).*?(\d+)\s*数据包\/s/);
+                    // 解析发送数据
+                    const sendMatch = sendLine.match(/(\d+\.?\d*)\s*([kmg]?b\/秒).*?(\d+)\s*数据包\/s/);
+                    
+                    if (!receiveMatch || !sendMatch) return null;
+                    
+                    const now = new Date();
+                    return {
+                        time: now.toLocaleTimeString(),
+                        timestamp: now.getTime(),
+                        receiveSpeed: parseFloat(receiveMatch[1]),
+                        receiveSpeedUnit: receiveMatch[2],
+                        receivePackets: parseInt(receiveMatch[3]),
+                        sendSpeed: parseFloat(sendMatch[1]),
+                        sendSpeedUnit: sendMatch[2],
+                        sendPackets: parseInt(sendMatch[3])
+                    };
+                },
+                renderRealtimeChart() {
+                    if (this._realtimeChart) this._realtimeChart.destroy();
+                    const ctx = this.$refs.realtimeChart;
+                    if (!ctx || this.realtimeData.length === 0) return;
+                    
+                    // 设置canvas尺寸
+                    ctx.height = 200;
+                    const parent = ctx.parentElement;
+                    if (parent) {
+                        ctx.width = parent.clientWidth;
+                    }
+                    
+                    // 准备图表数据（最近5分钟）
+                    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+                    const chartData = this.realtimeData.filter(item => item.timestamp >= fiveMinutesAgo);
+                    
+                    const labels = chartData.map(item => item.time);
+                    const receiveSpeeds = chartData.map(item => item.receiveSpeed);
+                    const sendSpeeds = chartData.map(item => item.sendSpeed);
+                    
+                    this._realtimeChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels,
+                            datasets: [
+                                { 
+                                    label: '接收速度', 
+                                    data: receiveSpeeds, 
+                                    borderColor: '#2563eb', 
+                                    backgroundColor: 'rgba(37,99,235,0.08)', 
+                                    tension: 0.3, 
+                                    fill: true 
+                                },
+                                { 
+                                    label: '发送速度', 
+                                    data: sendSpeeds, 
+                                    borderColor: '#fb923c', 
+                                    backgroundColor: 'rgba(251,146,60,0.08)', 
+                                    tension: 0.3, 
+                                    fill: true 
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: { 
+                                legend: { display: true }, 
+                                tooltip: { enabled: true } 
+                            },
+                            scales: { 
+                                y: { 
+                                    beginAtZero: true, 
+                                    title: { display: true, text: '速度' } 
+                                } 
+                            }
+                        }
+                    });
+                },
+                renderRealtimeTable() {
+                    if (this.realtimeData.length === 0) return;
+                    
+                    // 生成表格HTML
+                    const tableData = this.realtimeData.slice(-20); // 最近20条
+                    let html = `<div style='font-weight:bold;margin-bottom:4px;'>实时流量统计</div>`;
+                    html += '<table class="table table-sm table-bordered mb-0" style="font-size:13px;">';
+                    html += '<thead><tr><th>时间</th><th>接收速度</th><th>接收数据包</th><th>发送速度</th><th>发送数据包</th></tr></thead>';
+                    html += '<tbody>';
+                    
+                    tableData.forEach((item, index) => {
+                        const isLatest = index === tableData.length - 1;
+                        const rowBg = isLatest ? '#e3f2fd' : (index % 2 === 0 ? '#fff' : '#f6f8fa');
+                        const textColor = isLatest ? '#1976d2' : '';
+                        html += `<tr style='background:${rowBg};${textColor ? 'color: ' + textColor + ';font-weight:bold;' : ''}'>`;
+                        html += `<td>${item.time}</td>`;
+                        html += `<td style='color:#2563eb;font-weight:500;'>${item.receiveSpeed} ${item.receiveSpeedUnit}</td>`;
+                        html += `<td style='color:#2563eb;font-weight:500;'>${item.receivePackets} 包/s</td>`;
+                        html += `<td style='color:#fb923c;font-weight:500;'>${item.sendSpeed} ${item.sendSpeedUnit}</td>`;
+                        html += `<td style='color:#fb923c;font-weight:500;'>${item.sendPackets} 包/s</td>`;
+                        html += '</tr>';
+                    });
+                    
+                    html += '</tbody></table>';
+                    
+                    // 更新表格内容
+                    this.$refs.realtimeTable.innerHTML = html;
                 },
                 async loadMinuteStats() {
                     this.minuteStats.loading = true;
@@ -1158,6 +1295,7 @@
                 }
                 if (this._minuteChart) this._minuteChart.destroy();
                 if (this._statCharts) this._statCharts.forEach(chart => chart.destroy());
+                if (this._realtimeChart) this._realtimeChart.destroy(); // 移除实时图表
                 // 新增：移除resize事件监听
                 window.removeEventListener('resize', this.resizeAllCharts);
             }
