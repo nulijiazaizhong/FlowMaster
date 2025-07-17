@@ -290,7 +290,7 @@
                             <h5 class="card-title mb-0">{{stat.title}}</h5>
                         </div>
                         <div class="card-body">
-                            <div class="chart-container" style="height:180px;">
+                            <div class="chart-container" :style="stat.period === 'y' ? 'height:320px;' : 'height:180px;'">
                                 <canvas :ref="'statChart' + index" style="width:100%;height:100%;"></canvas>
                             </div>
                             <div v-html="renderTableHtml(formatTableDataUnified(stat.data, stat.unit, stat.factor), stat.unit)"></div>
@@ -623,7 +623,9 @@
                     if (Array.isArray(ctx)) ctx = ctx[0];
                     // 修复自动刷新导致canvas高度异常
                     if (ctx) {
-                        ctx.height = 180;
+                        // 年统计图表高度拉高
+                        const period = this.stats[index].period;
+                        ctx.height = period === 'y' ? 320 : 180;
                         // 新增：动态设置canvas宽度为父容器宽度
                         const parent = ctx.parentElement;
                         if (parent) {
