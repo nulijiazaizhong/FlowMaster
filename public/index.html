@@ -216,6 +216,9 @@
             </div>
 
             <div class="card mb-3" v-cloak>
+                <div class="card-header py-2">
+                    <h6 class="mb-0">指定日期查询</h6>
+                </div>
                 <div class="card-body py-2">
                     <div class="row g-2 align-items-end">
                         <div class="col-md-3">
@@ -239,8 +242,13 @@
                     </div>
                     
                     <!-- 查询结果显示 -->
-                    <div v-if="dateRangeStats.data.length" class="mt-2">
-                        <pre class="mb-0 small">{{dateRangeStats.data.join('\n')}}</pre>
+                    <div v-if="dateRangeStats.data.length" class="mt-3">
+                        <!-- 图表显示 -->
+                        <div class="chart-container" style="height:180px;margin-bottom:15px;">
+                            <canvas ref="dateRangeChart" style="width:100%;height:100%;"></canvas>
+                        </div>
+                        <!-- 表格显示 -->
+                        <div v-html="renderTableHtml(formatTableDataUnified(dateRangeStats.data, dateRangeStats.unit, dateRangeStats.factor), dateRangeStats.unit)"></div>
                     </div>
                 </div>
             </div>
@@ -348,7 +356,9 @@
                     },
                     dateRangeStats: {
                         data: [],
-                        loading: false
+                        loading: false,
+                        unit: 'GiB',
+                        factor: 1
                     },
                     isDarkMode: false,
                     realtimeData: [], // 存储最近20条实时数据记录
@@ -971,6 +981,18 @@
                             `/api/stats/${this.selectedInterface}/range/${this.dateRange.start}/${this.dateRange.end}`
                         );
                         this.dateRangeStats.data = response.data.data;
+                        
+                        // 计算最佳单位和因子
+                        const { labels, rx, tx } = this.parseStatData(this.dateRangeStats.data);
+                        const all = rx.concat(tx);
+                        const { unit, factor } = this.getBestUnitAndFactor(all);
+                        this.dateRangeStats.unit = unit;
+                        this.dateRangeStats.factor = factor;
+                        
+                        // 渲染图表
+                        this.$nextTick(() => {
+                            this.renderDateRangeChart();
+                        });
                     } catch (error) {
                         this.error = '查询失败: ' + (error.response?.data?.error || error.message);
                     }
@@ -980,6 +1002,8 @@
                     this.dateRangeStats.data = [];
                     this.dateRange.start = '';
                     this.dateRange.end = '';
+                    // 清理图表实例
+                    this.destroyChartInstance('dateRangeChart');
                 },
                 // 新：将格式化后的数据渲染为HTML表格
                 renderTableHtml(data, unit) {
@@ -1270,6 +1294,48 @@
                     } finally {
                         this.isUpdating = false;
                     }
+                },
+                // 新增：渲染指定日期查询结果图表
+                renderDateRangeChart() {
+                    // 使用实例池管理
+                    const chartKey = 'dateRangeChart';
+                    const existingChart = this.getChartInstance(chartKey);
+                    if (existingChart) {
+                        existingChart.destroy();
+                    }
+                    
+                    const ctx = this.$refs.dateRangeChart;
+                    if (!ctx) return;
+                    
+                    // 设置canvas尺寸
+                    ctx.height = 180;
+                    const parent = ctx.parentElement;
+                    if (parent) {
+                        ctx.width = parent.clientWidth;
+                    }
+                    
+                    // 解析数据，过滤掉总计行
+                    const { labels, rx, tx } = this.parseStatData(this.dateRangeStats.data, this.dateRangeStats.unit);
+                    if (!labels.length) return;
+                    
+                    const chart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels,
+                            datasets: [
+                                { label: `接收(${this.dateRangeStats.unit})`, data: rx, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.08)', tension: 0.3, fill: true },
+                                { label: `发送(${this.dateRangeStats.unit})`, data: tx, borderColor: '#fb923c', backgroundColor: 'rgba(251,146,60,0.08)', tension: 0.3, fill: true }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: { legend: { display: true }, tooltip: { enabled: true } },
+                            scales: { y: { beginAtZero: true, title: { display: true, text: this.dateRangeStats.unit } } }
+                        }
+                    });
+                    
+                    // 保存到实例池
+                    this.setChartInstance(chartKey, chart);
                 },
                 // 新增：添加图表更新到队列
                 queueChartUpdate(updateFunc) {
