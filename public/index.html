@@ -550,9 +550,8 @@
                         return null;
                     }
                     
-                    // 增强的正则表达式，支持多种格式
-                    // 格式1: 12345                   // 格式2: 123.45 kb/s 1234 packets/s
-                    const speedPattern = /(\d+\.?\d*)\s*([kmg]?b\/秒).*?(\d+)\s*(数据包|packets|包|p)\/s/i;
+                    // 简化正则表达式，因为后端已经统一单位为 Mb/s
+                    const speedPattern = /(\d+\.?\d*)\s*Mb\/秒.*?(\d+)\s*(数据包|packets|包|p)\/s/i;
                     
                     // 解析接收数据
                     const receiveMatch = receiveLine.match(speedPattern);
@@ -574,11 +573,11 @@
                         time: now.toLocaleTimeString(),
                         timestamp: now.getTime(),
                         receiveSpeed: parseFloat(receiveMatch[1]),
-                        receiveSpeedUnit: receiveMatch[2],
-                        receivePackets: parseInt(receiveMatch[3]),
+                        receiveSpeedUnit: 'Mb/秒', // 固定单位
+                        receivePackets: parseInt(receiveMatch[2]),
                         sendSpeed: parseFloat(sendMatch[1]),
-                        sendSpeedUnit: sendMatch[2],
-                        sendPackets: parseInt(sendMatch[3])
+                        sendSpeedUnit: 'Mb/秒', // 固定单位
+                        sendPackets: parseInt(sendMatch[2])
                     };
                     
                     // 验证解析结果
@@ -629,8 +628,8 @@
                         data: {
                             labels,
                             datasets: [
-                                { label: '接收速度', data: receiveSpeeds, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.08)', tension: 0.3, fill: true },
-                                { label: '发送速度', data: sendSpeeds, borderColor: '#fb923c', backgroundColor: 'rgba(251,146,60,0.08)', tension: 0.3, fill: true }
+                                { label: '接收速度 (Mb/s)', data: receiveSpeeds, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.08)', tension: 0.3, fill: true },
+                                { label: '发送速度 (Mb/s)', data: sendSpeeds, borderColor: '#fb923c', backgroundColor: 'rgba(251,146,60,0.08)', tension: 0.3, fill: true }
                             ]
                         },
                         options: {
@@ -642,7 +641,7 @@
                             scales: { 
                                 y: { 
                                     beginAtZero: true, 
-                                    title: { display: true, text: '速度' } 
+                                    title: { display: true, text: '速度 (Mb/s)' } 
                                 } 
                             }
                         }
@@ -663,8 +662,8 @@
                     } else {
                         // 显示解析后的数据表格
                         const tableData = this.realtimeData.slice(-8); // 最近8条
-                        html += '<table class="table table-sm table-bordered mb-0" style="font-size:13px;">';
-                        html += '<thead><tr><th>时间</th><th>接收速度</th><th>接收数据包</th><th>发送速度</th><th>发送数据包</th></tr></thead>';
+                        html += '<table class="table table-sm table-bordered mb-0 style=font-size:13px;">';
+                        html += '<thead><tr><th>时间</th><th>接收速度 (Mb/s)</th><th>接收数据包</th><th>发送速度 (Mb/s)</th><th>发送数据包</th></tr></thead>';
                         html += '<tbody>';
                         
                         tableData.forEach((item, index) => {
