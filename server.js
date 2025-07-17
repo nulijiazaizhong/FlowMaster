@@ -649,26 +649,162 @@ app.get('/api/system/memory', (req, res) => {
     });
 });
 
+// 添加服务器状态检查API
+app.get('/api/system/status', async (req, res) => {
+    try {
+        const status = {
+            server: {
+                uptime: process.uptime(),
+                memory: process.memoryUsage(),
+                version: process.version,
+                platform: process.platform,
+                arch: process.arch
+            },
+            vnstat: {
+                available: false,
+                version: null,
+                error: null
+            },
+            cache: cacheManager.getStats(),
+            timestamp: new Date().toISOString()
+        };
+
+        // 检查vnstat命令是否可用
+        try {
+            const vnstatResult = await new Promise((resolve, reject) => {
+                exec('vnstat --version', { timeout: 5000 }, (error, stdout, stderr) => {
+                    if (error) reject(error);
+                    else resolve(stdout);
+                });
+            });
+            status.vnstat.available = true;
+            status.vnstat.version = vnstatResult.trim();
+        } catch (error) {
+            status.vnstat.error = error.message;
+        }
+
+        res.json(status);
+    } catch (error) {
+        res.status(500).json({ 
+            error: '服务器状态检查失败', 
+            details: error.message 
+        });
+    }
+});
+
+// 添加vnstat命令测试API
+app.get('/api/test/vnstat', async (req, res) => {
+    try {
+        const testCommands = [
+            { name: 'version', cmd: 'vnstat --version' },
+            { name: 'iflist', cmd: 'vnstat --iflist' },
+            { name: 'help', cmd: 'vnstat --help' }
+        ];
+
+        const results = {};
+        
+        for (const test of testCommands) {
+            try {
+                const result = await new Promise((resolve, reject) => {
+                    exec(test.cmd, { timeout: 10000 }, (error, stdout, stderr) => {
+                        if (error) reject(error);
+                        else resolve(stdout);
+                    });
+                });
+                results[test.name] = {
+                    success: true,
+                    output: result.trim()
+                };
+            } catch (error) {
+                results[test.name] = {
+                    success: false,
+                    error: error.message
+                };
+            }
+        }
+
+        res.json({
+            timestamp: new Date().toISOString(),
+            results
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            error: 'vnstat测试失败', 
+            details: error.message 
+        });
+    }
+});
+
 // 错误处理中间件
 app.use((err, req, res, next) => {
     console.error('服务器错误:', err.stack);
     
+    // 记录详细的错误信息
+    const errorInfo = {
+        timestamp: new Date().toISOString(),
+        url: req.url,
+        method: req.method,
+        userAgent: req.get('User-Agent'),
+        ip: req.ip,
+        error: {
+            message: err.message,
+            stack: err.stack,
+            name: err.name
+        }
+    };
+    
     // 如果是缓存相关错误，记录详细信息
     if (err.message && err.message.includes('cache')) {
         console.error('缓存错误详情:', {
-            url: req.url,
-            method: req.method,
+            ...errorInfo,
             cacheStats: cacheManager.getStats()
         });
     }
     
-    res.status(500).json({ error: '服务器内部错误' });
+    // 如果是vnstat相关错误，记录详细信息
+    if (err.message && (err.message.includes('vnstat') || err.message.includes('command'))) {
+        console.error('vnstat命令错误详情:', errorInfo);
+    }
+    
+    // 根据错误类型返回不同的响应
+    let statusCode = 500;
+    let errorMessage = '服务器内部错误';
+    
+    if (err.code === 'ENOENT') {
+        statusCode = 503;
+        errorMessage = '服务暂时不可用，请检查vnstat命令是否正确安装';
+    } else if (err.code === 'ETIMEDOUT') {
+        statusCode = 504;
+        errorMessage = '请求超时，请稍后重试';
+    } else if (err.message && err.message.includes('vnstat')) {
+        statusCode = 503;
+        errorMessage = 'vnstat命令执行失败，请检查系统配置';
+    }
+    
+    res.status(statusCode).json({ 
+        error: errorMessage,
+        timestamp: errorInfo.timestamp,
+        requestId: Math.random().toString(36).substr(2, 9)
+    });
 });
 
 // 启动服务器
 const server = app.listen(port, () => {
     console.log(`服务器运行在 http://localhost:${port}`);
     console.log(`缓存配置: 最大条目=${cacheConfig.maxSize}, 最大内存=${cacheConfig.maxMemoryMB}MB`);
+    
+    // 检查vnstat命令可用性
+    exec('vnstat --version', (error, stdout, stderr) => {
+        if (error) {
+            console.error('⚠️  vnstat命令不可用:', error.message);
+            console.error('请确保已安装vnstat:');
+            console.error('  Ubuntu/Debian: sudo apt-get install vnstat');
+            console.error('  CentOS/RHEL: sudo yum install vnstat');
+            console.error('  Windows: 请安装WSL或使用其他网络监控工具');
+        } else {
+            console.log('✅ vnstat命令可用:', stdout.trim());
+        }
+    });
     
     // 启动内存监控
     setInterval(() => {

@@ -93,6 +93,38 @@
 
             <div v-if="error" class="alert alert-danger" v-cloak>
                 {{error}}
+                <button class="btn btn-sm btn-outline-danger ms-2" @click="runDiagnosis" title="运行诊断">
+                    <i class="bi bi-bug"></i> 诊断问题
+                </button>
+            </div>
+
+            <!-- 新增：诊断结果显示 -->
+            <div v-if="diagnosisResult" class="alert alert-info" v-cloak>
+                <h6>诊断结果 ({{diagnosisResult.timestamp}})</h6>
+                <div v-if="diagnosisResult.serverStatus">
+                    <strong>服务器状态:</strong> 
+                    <span :class="diagnosisResult.serverStatus.success ? 'text-success' : 'text-danger'">
+                        {{diagnosisResult.serverStatus.success ? '连接正常' : '连接失败'}}
+                    </span>
+                    <span v-if="!diagnosisResult.serverStatus.success" class="text-muted">
+                        ({{diagnosisResult.serverStatus.error}})
+                    </span>
+                </div>
+                <div v-if="diagnosisResult.vnstatTest">
+                    <strong>vnstat测试:</strong> 
+                    <span :class="diagnosisResult.vnstatTest.success ? 'text-success' : 'text-danger'">
+                        {{diagnosisResult.vnstatTest.success ? '正常' : '失败'}}
+                    </span>
+                </div>
+                <div v-if="diagnosisResult.recommendations.length > 0">
+                    <strong>建议:</strong>
+                    <ul class="mb-0 mt-1">
+                        <li v-for="rec in diagnosisResult.recommendations" :key="rec">{{rec}}</li>
+                    </ul>
+                </div>
+                <button class="btn btn-sm btn-outline-secondary mt-2" @click="diagnosisResult = null">
+                    关闭
+                </button>
             </div>
 
             <div class="row align-items-center mb-3">
@@ -324,7 +356,8 @@
                         lastResponseTime: 0,
                         averageResponseTime: 0,
                         requestCount: 0
-                    }
+                    },
+                    diagnosisResult: null // 新增：诊断结果
                 }
             },
             computed: {
@@ -376,6 +409,11 @@
                         if (this.interfaces.length > 0) {
                             this.selectedInterface = this.interfaces[0];
                             this.loadAllStats();
+                        } else {
+                            // 降级显示：如果没有找到接口，显示默认接口
+                            this.interfaces = ['eth0'];
+                            this.selectedInterface = 'eth0';
+                            this.error = '未找到网络接口，使用默认接口eth0。请检查vnstat是否正确安装和配置。';
                         }
                     } catch (error) {
                         const errorMsg = error.response?.data?.error || error.message;
@@ -384,8 +422,17 @@
                         
                         // 如果是缓存相关错误，提供特殊提示
                         if (errorMsg.includes('cache') || errorMsg.includes('缓存')) {
-                            this.error += (缓存系统可能存在问题)
+                            this.error += ' (缓存系统可能存在问题)';
                         }
+                        
+                        // 降级显示：使用默认接口
+                        this.interfaces = ['eth0'];
+                        this.selectedInterface = 'eth0';
+                        
+                        // 自动运行诊断
+                        setTimeout(() => {
+                            this.runDiagnosis();
+                        }, 1000);
                     }
                 },
                 parseStatData(data, unit = 'MiB') {
@@ -1007,6 +1054,73 @@
                         this.performance.lastResponseTime = responseTime;
                         throw error;
                     }
+                },
+                // 新增：检查服务器状态
+                async checkServerStatus() {
+                    try {
+                        const response = await axios.get('/api/system/status');
+                        return {
+                            success: true,
+                            data: response.data
+                        };
+                    } catch (error) {
+                        return {
+                            success: false,
+                            error: error.response?.data?.error || error.message,
+                            status: error.response?.status
+                        };
+                    }
+                },
+                // 新增：测试vnstat命令
+                async testVnstat() {
+                    try {
+                        const response = await axios.get('/api/test/vnstat');
+                        return {
+                            success: true,
+                            data: response.data
+                        };
+                    } catch (error) {
+                        return {
+                            success: false,
+                            error: error.response?.data?.error || error.message
+                        };
+                    }
+                },
+                // 新增：诊断连接问题
+                async diagnoseConnection() {
+                    const diagnosis = {
+                        timestamp: new Date().toISOString(),
+                        serverStatus: null,
+                        vnstatTest: null,
+                        recommendations: []
+                    };
+
+                    // 检查服务器状态
+                    const serverStatus = await this.checkServerStatus();
+                    diagnosis.serverStatus = serverStatus;
+
+                    if (!serverStatus.success) {
+                        diagnosis.recommendations.push('服务器连接失败，请检查服务器是否正在运行');
+                        if (serverStatus.status === 503) {
+                            diagnosis.recommendations.push('服务器返回503错误，可能是vnstat命令未安装或配置错误');
+                        }
+                    } else {
+                        // 如果服务器连接成功，测试vnstat
+                        const vnstatTest = await this.testVnstat();
+                        diagnosis.vnstatTest = vnstatTest;
+
+                        if (!vnstatTest.success) {
+                            diagnosis.recommendations.push('vnstat命令测试失败，请检查vnstat是否正确安装');
+                        } else if (!serverStatus.data.vnstat.available) {
+                            diagnosis.recommendations.push('vnstat命令不可用，请检查系统配置');
+                        }
+                    }
+
+                    return diagnosis;
+                },
+                // 新增：运行诊断
+                async runDiagnosis() {
+                    this.diagnosisResult = await this.diagnoseConnection();
                 }
             },
             watch: {
