@@ -496,7 +496,7 @@
                         const cols = line.replace(/\s+/g, ' ').trim().split(' ');
                         if (cols.length < Math.max(rxIdx, txIdx) + 1) continue;
                         // 跳过合计/平均/预计等行
-                        if (/总计|平均|预计|total|avg|est/.test(cols[labelIdx])) continue;
+                        if (/总计|平均|预计|total|avg|est|sum/.test(cols[labelIdx])) continue;
                         labels.push(cols[labelIdx]);
                         rx.push(this.extractPureNumber(cols[rxIdx]));
                         tx.push(this.extractPureNumber(cols[txIdx]));
@@ -549,7 +549,7 @@
                             continue; 
                         }
                         // 跳过合计/平均/预计等行
-                        if (/总计|平均|预计|total|avg|est/.test(cols[0])) { 
+                        if (/总计|平均|预计|total|avg|est|sum/.test(cols[0])) { 
                             result[i] = line; 
                             continue; 
                         }
@@ -982,12 +982,9 @@
                         );
                         this.dateRangeStats.data = response.data.data;
                         
-                        // 计算最佳单位和因子
-                        const { labels, rx, tx } = this.parseStatData(this.dateRangeStats.data);
-                        const all = rx.concat(tx);
-                        const { unit, factor } = this.getBestUnitAndFactor(all);
-                        this.dateRangeStats.unit = unit;
-                        this.dateRangeStats.factor = factor;
+                        // 固定使用GiB单位，因子为1/1024（从MiB转换到GiB）
+                        this.dateRangeStats.unit = 'GiB';
+                        this.dateRangeStats.factor = 1/1024;
                         
                         // 渲染图表
                         this.$nextTick(() => {
