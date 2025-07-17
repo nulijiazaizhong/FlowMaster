@@ -5,7 +5,7 @@
 [![Node.js](https://img.shields.io/badge/node.js-14.0.0+-green.svg)](https://nodejs.org/)
 [![Vue.js](https://img.shields.io/badge/vue.js-3.2.31+-green.svg)](https://vuejs.org/)
 
-![FlowMaster Dashboard](assets/FlowMaster1.1.3.jpg)
+![FlowMaster](assets/FlowMaster.jpg)
 
 ## 📋 目录
 
