@@ -1017,17 +1017,32 @@
                     const receiveLine = rawData.find(line => line.includes('接收'));
                     const sendLine = rawData.find(line => line.includes('发送'));
                     
-                    if (!receiveLine || !sendLine) return null;
+                    if (!receiveLine || !sendLine) {
+                        console.warn('实时数据解析失败：未找到接收或发送行', rawData);
+                        return null;
+                    }
+                    
+                    // 增强的正则表达式，支持多种格式
+                    // 格式1: 12345                   // 格式2: 123.45 kb/s 1234 packets/s
+                    const speedPattern = /(\d+\.?\d*)\s*([kmg]?b\/秒).*?(\d+)\s*(数据包|packets|包|p)\/s/i;
                     
                     // 解析接收数据
-                    const receiveMatch = receiveLine.match(/(\d+\.?\d*)\s*([kmg]?b\/秒).*?(\d+)\s*数据包\/s/);
+                    const receiveMatch = receiveLine.match(speedPattern);
                     // 解析发送数据
-                    const sendMatch = sendLine.match(/(\d+\.?\d*)\s*([kmg]?b\/秒).*?(\d+)\s*数据包\/s/);
+                    const sendMatch = sendLine.match(speedPattern);
                     
-                    if (!receiveMatch || !sendMatch) return null;
+                    if (!receiveMatch || !sendMatch) {
+                        console.warn('实时数据解析失败：正则匹配失败', {
+                            receiveLine,
+                            sendLine,
+                            receiveMatch,
+                            sendMatch
+                        });
+                        return null;
+                    }
                     
                     const now = new Date();
-                    return {
+                    const parsedData = {
                         time: now.toLocaleTimeString(),
                         timestamp: now.getTime(),
                         receiveSpeed: parseFloat(receiveMatch[1]),
@@ -1037,11 +1052,24 @@
                         sendSpeedUnit: sendMatch[2],
                         sendPackets: parseInt(sendMatch[3])
                     };
+                    
+                    // 验证解析结果
+                    if (isNaN(parsedData.receiveSpeed) || isNaN(parsedData.sendSpeed) || 
+                        isNaN(parsedData.receivePackets) || isNaN(parsedData.sendPackets)) {
+                        console.warn('实时数据解析失败：数值转换失败', parsedData);
+                        return null;
+                    }
+                    
+                    console.log('实时数据解析成功:', parsedData);
+                    return parsedData;
                 },
                 renderRealtimeChart() {
                     if (this._realtimeChart) this._realtimeChart.destroy();
                     const ctx = this.$refs.realtimeChart;
-                    if (!ctx || this.realtimeData.length === 0) return;
+                    if (!ctx) {
+                        console.warn('实时图表渲染失败：canvas元素不存在');
+                        return;
+                    }
                     
                     // 设置canvas尺寸
                     ctx.height = 200;
@@ -1054,31 +1082,27 @@
                     const oneMinuteAgo = Date.now() - 1 * 60 * 1000;
                     const chartData = this.realtimeData.filter(item => item.timestamp >= oneMinuteAgo);
                     
-                    const labels = chartData.map(item => item.time);
-                    const receiveSpeeds = chartData.map(item => item.receiveSpeed);
-                    const sendSpeeds = chartData.map(item => item.sendSpeed);
+                    // 如果没有数据，创建默认数据点
+                    let labels, receiveSpeeds, sendSpeeds;
+                    if (chartData.length === 0) {
+                        console.log('实时图表：使用默认数据');
+                        const now = new Date();
+                        labels = [now.toLocaleTimeString()];
+                        receiveSpeeds = [0];
+                        sendSpeeds = [0];
+                    } else {
+                        labels = chartData.map(item => item.time);
+                        receiveSpeeds = chartData.map(item => item.receiveSpeed);
+                        sendSpeeds = chartData.map(item => item.sendSpeed);
+                    }
                     
                     this._realtimeChart = new Chart(ctx, {
                         type: 'line',
                         data: {
                             labels,
                             datasets: [
-                                { 
-                                    label: '接收速度', 
-                                    data: receiveSpeeds, 
-                                    borderColor: '#2563eb', 
-                                    backgroundColor: 'rgba(37,99,235,0.08)', 
-                                    tension: 0.3, 
-                                    fill: true 
-                                },
-                                { 
-                                    label: '发送速度', 
-                                    data: sendSpeeds, 
-                                    borderColor: '#fb923c', 
-                                    backgroundColor: 'rgba(251,146,60,0.08)', 
-                                    tension: 0.3, 
-                                    fill: true 
-                                }
+                                { label: '接收速度', data: receiveSpeeds, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.08)', tension: 0.3, fill: true },
+                                { label: '发送速度', data: sendSpeeds, borderColor: '#fb923c', backgroundColor: 'rgba(251,146,60,0.08)', tension: 0.3, fill: true }
                             ]
                         },
                         options: {
