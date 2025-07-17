@@ -549,16 +549,13 @@
                         if (this.debugMode) console.warn('实时数据解析失败：未找到接收或发送行', rawData);
                         return null;
                     }
-                    
                     // 增强的正则表达式，支持多种格式
                     // 格式1: 12345                   // 格式2: 123.45 kb/s 1234 packets/s
                     const speedPattern = /(\d+\.?\d*)\s*([kmg]?b\/秒).*?(\d+)\s*(数据包|packets|包|p)\/s/i;
-                    
                     // 解析接收数据
                     const receiveMatch = receiveLine.match(speedPattern);
                     // 解析发送数据
                     const sendMatch = sendLine.match(speedPattern);
-                    
                     if (!receiveMatch || !sendMatch) {
                         if (this.debugMode) console.warn('实时数据解析失败：正则匹配失败', {
                             receiveLine,
@@ -568,26 +565,26 @@
                         });
                         return null;
                     }
-                    
                     const now = new Date();
+                    // 统一转换为kb/s
+                    const receiveSpeedKb = this.convertSpeedToUnit(parseFloat(receiveMatch[1]), receiveMatch[2]);
+                    const sendSpeedKb = this.convertSpeedToUnit(parseFloat(sendMatch[1]), sendMatch[2]);
                     const parsedData = {
                         time: now.toLocaleTimeString(),
                         timestamp: now.getTime(),
-                        receiveSpeed: parseFloat(receiveMatch[1]),
-                        receiveSpeedUnit: receiveMatch[2],
+                        receiveSpeed: receiveSpeedKb,
+                        receiveSpeedUnit: 'kb/秒',
                         receivePackets: parseInt(receiveMatch[3]),
-                        sendSpeed: parseFloat(sendMatch[1]),
-                        sendSpeedUnit: sendMatch[2],
+                        sendSpeed: sendSpeedKb,
+                        sendSpeedUnit: 'kb/秒',
                         sendPackets: parseInt(sendMatch[3])
                     };
-                    
                     // 验证解析结果
                     if (isNaN(parsedData.receiveSpeed) || isNaN(parsedData.sendSpeed) || 
                         isNaN(parsedData.receivePackets) || isNaN(parsedData.sendPackets)) {
                         if (this.debugMode) console.warn('实时数据解析失败：数值转换失败', parsedData);
                         return null;
                     }
-                    
                     if (this.debugMode) console.log('实时数据解析成功:', parsedData);
                     return parsedData;
                 },
@@ -598,18 +595,15 @@
                         if (this.debugMode) console.warn('实时图表渲染失败：canvas元素不存在');
                         return;
                     }
-                    
                     // 设置canvas尺寸
                     ctx.height = 200;
                     const parent = ctx.parentElement;
                     if (parent) {
                         ctx.width = parent.clientWidth;
                     }
-                    
                     // 准备图表数据（最近1分钟）
                     const oneMinuteAgo = Date.now() - 1 * 60 * 1000;
                     const chartData = this.realtimeData.filter(item => item.timestamp >= oneMinuteAgo);
-                    
                     // 如果没有数据，创建默认数据点
                     let labels, receiveSpeeds, sendSpeeds;
                     if (chartData.length === 0) {
@@ -620,17 +614,16 @@
                         sendSpeeds = [0];
                     } else {
                         labels = chartData.map(item => item.time);
-                        receiveSpeeds = chartData.map(item => item.receiveSpeed);
-                        sendSpeeds = chartData.map(item => item.sendSpeed);
+                        receiveSpeeds = chartData.map(item => item.receiveSpeed); // 已为kb/s
+                        sendSpeeds = chartData.map(item => item.sendSpeed); // 已为kb/s
                     }
-                    
                     this._realtimeChart = new Chart(ctx, {
                         type: 'line',
                         data: {
                             labels,
                             datasets: [
-                                { label: '接收速度', data: receiveSpeeds, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.08)', tension: 0.3, fill: true },
-                                { label: '发送速度', data: sendSpeeds, borderColor: '#fb923c', backgroundColor: 'rgba(251,146,60,0.08)', tension: 0.3, fill: true }
+                                { label: '接收速度(kb/秒)', data: receiveSpeeds, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.08)', tension: 0.3, fill: true },
+                                { label: '发送速度(kb/秒)', data: sendSpeeds, borderColor: '#fb923c', backgroundColor: 'rgba(251,146,60,0.08)', tension: 0.3, fill: true }
                             ]
                         },
                         options: {
@@ -642,7 +635,7 @@
                             scales: { 
                                 y: { 
                                     beginAtZero: true, 
-                                    title: { display: true, text: '速度' } 
+                                    title: { display: true, text: '速度 (kb/秒)' } 
                                 } 
                             }
                         }
@@ -651,7 +644,6 @@
                 renderRealtimeTable() {
                     // 生成表格HTML
                     let html = `<div style='font-weight:bold;margin-bottom:4px;'>实时流量统计</div>`;
-                    
                     if (this.realtimeData.length === 0) {
                         // 显示原始数据作为降级方案
                         html += `<div style="color:#666;font-style:italic;padding:10px;">暂无实时数据，显示原始数据：</div>`;
@@ -664,25 +656,22 @@
                         // 显示解析后的数据表格
                         const tableData = this.realtimeData.slice(-8); // 最近8条
                         html += '<table class="table table-sm table-bordered mb-0" style="font-size:13px;">';
-                        html += '<thead><tr><th>时间</th><th>接收速度</th><th>接收数据包</th><th>发送速度</th><th>发送数据包</th></tr></thead>';
+                        html += '<thead><tr><th>时间</th><th>接收速度(kb/秒)</th><th>接收数据包</th><th>发送速度(kb/秒)</th><th>发送数据包</th></tr></thead>';
                         html += '<tbody>';
-                        
                         tableData.forEach((item, index) => {
                             const isLatest = index === tableData.length - 1;
                             const rowBg = isLatest ? '#e3f2fd' : (index % 2 === 0 ? '#fff' : '#f6f8fa');
                             const textColor = isLatest ? '#1976d2' : '';
                             html += `<tr style='background:${rowBg};${textColor ? 'color: ' + textColor + ';font-weight:bold;' : ''}'>`;
                             html += `<td>${item.time}</td>`;
-                            html += `<td style='color:#2563eb;font-weight:500;'>${item.receiveSpeed} ${item.receiveSpeedUnit}</td>`;
+                            html += `<td style='color:#2563eb;font-weight:500;'>${item.receiveSpeed.toFixed(2)} kb/秒</td>`;
                             html += `<td style='color:#2563eb;font-weight:500;'>${item.receivePackets} 包/s</td>`;
-                            html += `<td style='color:#fb923c;font-weight:500;'>${item.sendSpeed} ${item.sendSpeedUnit}</td>`;
+                            html += `<td style='color:#fb923c;font-weight:500;'>${item.sendSpeed.toFixed(2)} kb/秒</td>`;
                             html += `<td style='color:#fb923c;font-weight:500;'>${item.sendPackets} 包/s</td>`;
                             html += '</tr>';
                         });
-                        
                         html += '</tbody></table>';
                     }
-                    
                     // 更新表格内容
                     if (this.$refs.realtimeTable) {
                         this.$refs.realtimeTable.innerHTML = html;
@@ -843,6 +832,38 @@
                     // 应用调试模式，默认关闭
                     const userDebugMode = localStorage.getItem('debugMode');
                     this.debugMode = (userDebugMode === 'true');
+                },
+                // 新：速度单位统一转换为kb/秒
+                convertSpeedToUnit(speed, fromUnit) {
+                    // 先统一为b/秒
+                    let speedInBits = speed;
+                    switch((fromUnit||'').toLowerCase()) {
+                        case 'gb/秒':
+                            speedInBits = speed * 1024;
+                            break;
+                        case 'mb/秒':
+                            speedInBits = speed * 1024 * 1024;
+                            break;
+                        case 'kb/秒':
+                            speedInBits = speed * 1024;
+                            break;
+                        case 'b/秒':
+                        default:
+                            speedInBits = speed;
+                    }
+                    // 再转为kb/秒
+                    return speedInBits / 1024;
+                },
+                // 新增：智能选择最佳速度显示单位
+                getBestSpeedUnit(speeds) {
+                    if (!speeds || speeds.length === 0) return 'b/s';
+                    // 找到最大速度值（假设所有速度都已转换为b/s）
+                    const maxSpeed = Math.max(...speeds);
+                    
+                    if (maxSpeed >= 1024 * 1024 * 1024) return 'Gb/s';
+                    if (maxSpeed >= 1024 * 1024) return 'Mb/s';
+                    if (maxSpeed >= 1024) return 'Kb/s';
+                    return 'b/s';
                 }
             },
             watch: {
