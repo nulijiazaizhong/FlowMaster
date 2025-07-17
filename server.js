@@ -35,7 +35,7 @@ const translations = {
     'bytes': '字节',
     'packets': '数据包',
     'packets/s': '包/秒',
-    'bits/s': '比特/秒',
+    'bits/s': 'b/秒',
     'kbit/s': 'kb/秒',
     'Mbit/s': 'Mb/秒',
     'Gbit/s': 'Gb/秒',
