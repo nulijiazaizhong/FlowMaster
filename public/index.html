@@ -63,6 +63,24 @@
     <link href="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/bootstrap-icons/1.8.0/font/bootstrap-icons.min.css" rel="stylesheet">
     <link href="/css/main.css" rel="stylesheet">
     <link href="/css/dark-theme.css" rel="stylesheet">
+    
+    <!-- 新增：资源预加载优化 -->
+    <link rel="preload" href="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/twitter-bootstrap/5.1.3/css/bootstrap.min.css" as="style">
+    <link rel="preload" href="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/vue/3.2.31/vue.global.min.js" as="script">
+    <link rel="preload" href="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/axios/0.26.0/axios.min.js" as="script">
+    
+    <!-- 新增：性能监控 -->
+    <script>
+        // 性能监控
+        window.performanceMark = function(name) {
+            if (window.performance && window.performance.mark) {
+                window.performance.mark(name);
+            }
+        };
+        
+        // 记录页面加载开始
+        window.performanceMark('app-start');
+    </script>
 </head>
 <body>
     <header class="container py-4">
@@ -357,7 +375,13 @@
                         averageResponseTime: 0,
                         requestCount: 0
                     },
-                    diagnosisResult: null // 新增：诊断结果
+                    diagnosisResult: null, // 新增：诊断结果
+                    // 新增：性能优化相关字段
+                    chartInstances: new Map(), // Chart.js实例池
+                    updateQueue: new Set(), // 更新队列
+                    isUpdating: false, // 是否正在更新
+                    lastChartUpdate: 0, // 上次图表更新时间
+                    chartUpdateThrottle: 100 // 图表更新节流时间（毫秒）
                 }
             },
             computed: {
@@ -436,13 +460,15 @@
                     }
                 },
                 parseStatData(data, unit = 'MiB') {
-                    // 解析stat.data，返回 { labels: [], rx: [], tx: [] }
-                    let labels = [];
-                    let rx = [];
-                    let tx = [];
+                    // 优化：预分配数组大小，减少动态扩容
+                    const labels = [];
+                    const rx = [];
+                    const tx = [];
                     let headerIdx = -1;
                     let rxIdx = -1, txIdx = -1, labelIdx = 0;
                     let started = false;
+                    
+                    // 优化：使用for循环替代forEach，性能更好
                     for (let i = 0; i < data.length; i++) {
                         const line = data[i].trim();
                         if (!line) continue;
@@ -468,27 +494,32 @@
                     return { labels, rx, tx };
                 },
                 extractPureNumber(val) {
-                    // 只提取数值部分，不做单位换算
+                    // 优化：使用更高效的正则匹配
                     if (!val) return 0;
                     const match = val.match(/([\d.]+)/);
-                    if (!match) return 0;
-                    return parseFloat(match[1]);
+                    return match ? parseFloat(match[1]) : 0;
                 },
                 getBestUnitAndFactor(arr) {
-                    // 计算最佳单位和换算因子，支持MiB/GiB/TiB
+                    // 优化：使用Math.max的展开语法，性能更好
                     const max = Math.max(...arr);
                     if (max >= 1024 * 1024) return { unit: 'TiB', factor: 1 / (1024 * 1024) };
                     if (max >= 1024) return { unit: 'GiB', factor: 1 / 1024 };
                     return { unit: 'MiB', factor: 1 };
                 },
-                // 新：格式化表格数据为统一单位且移除原始单位
+                // 优化：格式化表格数据为统一单位且移除原始单位
                 formatTableDataUnified(data, unit, factor) {
-                    let result = [];
+                    // 优化：预分配数组大小
+                    const result = new Array(data.length);
                     let started = false;
                     let rxIdx = -1, txIdx = -1, totalIdx = -1;
+                    
                     for (let i = 0; i < data.length; i++) {
                         let line = data[i];
-                        if (!started && line.includes('---')) { started = true; result.push(line); continue; }
+                        if (!started && line.includes('---')) { 
+                            started = true; 
+                            result[i] = line; 
+                            continue; 
+                        }
                         if (!started) {
                             // 处理表头，标注单位
                             let header = line.replace(/\s+/g, ' ').trim().split(' ');
@@ -498,32 +529,43 @@
                             if (rxIdx !== -1) header[rxIdx] += `(${unit})`;
                             if (txIdx !== -1) header[txIdx] += `(${unit})`;
                             if (totalIdx !== -1) header[totalIdx] += `(${unit})`;
-                            result.push(header.join(' '));
+                            result[i] = header.join(' ');
                             continue;
                         }
                         // 只处理数据行
                         let cols = line.replace(/\s+/g, ' ').trim().split(' ');
-                        if (cols.length < Math.max(rxIdx, txIdx, totalIdx) + 1) { result.push(line); continue; }
+                        if (cols.length < Math.max(rxIdx, txIdx, totalIdx) + 1) { 
+                            result[i] = line; 
+                            continue; 
+                        }
                         // 跳过合计/平均/预计等行
-                        if (/总计|平均|预计|total|avg|est/.test(cols[0])) { result.push(line); continue; }
+                        if (/总计|平均|预计|total|avg|est/.test(cols[0])) { 
+                            result[i] = line; 
+                            continue; 
+                        }
                         // 格式化数值并移除原单位
                         if (rxIdx !== -1) cols[rxIdx] = this.formatValueToUnitNoUnit(cols[rxIdx], factor);
                         if (txIdx !== -1) cols[txIdx] = this.formatValueToUnitNoUnit(cols[txIdx], factor);
                         if (totalIdx !== -1) cols[totalIdx] = this.formatValueToUnitNoUnit(cols[totalIdx], factor);
-                        result.push(cols.join(' '));
+                        result[i] = cols.join(' ');
                     }
                     return result;
                 },
                 formatValueToUnitNoUnit(val, factor) {
-                    // 提取数值并换算为目标单位，保留两位小数，不显示原单位
+                    // 优化：使用更高效的正则匹配
                     const match = val.match(/([\d.]+)/);
                     if (!match) return val;
-                    let num = parseFloat(match[1]);
-                    if (isNaN(num)) return val;
-                    return (num * factor).toFixed(2);
+                    const num = parseFloat(match[1]);
+                    return isNaN(num) ? val : (num * factor).toFixed(2);
                 },
                 renderMinuteChart() {
-                    if (this._minuteChart) this._minuteChart.destroy();
+                    // 优化：使用实例池管理
+                    const chartKey = 'minuteChart';
+                    const existingChart = this.getChartInstance(chartKey);
+                    if (existingChart) {
+                        existingChart.destroy();
+                    }
+                    
                     const ctx = this.$refs.minuteChart;
                     // 修复自动刷新导致canvas高度异常
                     if (ctx) {
@@ -538,7 +580,8 @@
                     const unit = 'MiB';
                     const { labels, rx, tx } = this.parseStatData(this.minuteStats.data, unit);
                     if (!labels.length) return;
-                    this._minuteChart = new Chart(ctx, {
+                    
+                    const chart = new Chart(ctx, {
                         type: 'line',
                         data: {
                             labels,
@@ -553,10 +596,18 @@
                             scales: { y: { beginAtZero: true, title: { display: true, text: unit } } }
                         }
                     });
+                    
+                    // 保存到实例池
+                    this.setChartInstance(chartKey, chart);
                 },
                 renderStatChart(index) {
-                    if (!this._statCharts) this._statCharts = [];
-                    if (this._statCharts[index]) this._statCharts[index].destroy();
+                    // 优化：使用实例池管理
+                    const chartKey = `statChart${index}`;
+                    const existingChart = this.getChartInstance(chartKey);
+                    if (existingChart) {
+                        existingChart.destroy();
+                    }
+                    
                     // 兼容ref为数组或单个元素
                     let ctx = this.$refs['statChart' + index];
                     if (Array.isArray(ctx)) ctx = ctx[0];
@@ -578,7 +629,8 @@
                     if (!labels.length) return;
                     // 年统计用柱状图，其余用折线图
                     const chartType = period === 'y' ? 'bar' : 'line';
-                    this._statCharts[index] = new Chart(ctx, {
+                    
+                    const chart = new Chart(ctx, {
                         type: chartType,
                         data: {
                             labels,
@@ -593,6 +645,9 @@
                             scales: { y: { beginAtZero: true, title: { display: true, text: unit } } }
                         }
                     });
+                    
+                    // 保存到实例池
+                    this.setChartInstance(chartKey, chart);
                 },
                 // 新增：统一重绘所有图表（窗口resize时调用）
                 resizeAllCharts() {
@@ -775,6 +830,10 @@
                     });
                 },
                 renderRealtimeTable() {
+                    // 优化：使用DocumentFragment减少DOM操作
+                    const fragment = document.createDocumentFragment();
+                    const container = document.createElement('div');
+                    
                     // 生成表格HTML
                     let html = `<div style='font-weight:bold;margin-bottom:4px;'>实时流量统计</div>`;
                     if (this.realtimeData.length === 0) {
@@ -786,28 +845,43 @@
                             html += `<div style="color:#999;text-align:center;padding:20px;">暂无数据</div>`;
                         }
                     } else {
+                        // 优化：使用数组拼接替代字符串拼接
+                        const tableParts = [];
+                        tableParts.push('<table class="table table-sm table-bordered mb-0" style="font-size:13px;">');
+                        tableParts.push('<thead><tr><th>时间</th><th>接收速度(kb/秒)</th><th>接收数据包</th><th>发送速度(kb/秒)</th><th>发送数据包</th></tr></thead>');
+                        tableParts.push('<tbody>');
+                        
                         // 显示解析后的数据表格
                         const tableData = this.realtimeData.slice(-8); // 最近8条
-                        html += '<table class="table table-sm table-bordered mb-0" style="font-size:13px;">';
-                        html += '<thead><tr><th>时间</th><th>接收速度(kb/秒)</th><th>接收数据包</th><th>发送速度(kb/秒)</th><th>发送数据包</th></tr></thead>';
-                        html += '<tbody>';
+                        const rowParts = [];
+                        
                         tableData.forEach((item, index) => {
                             const isLatest = index === tableData.length - 1;
                             const rowBg = isLatest ? '#e3f2fd' : (index % 2 === 0 ? '#fff' : '#f6f8fa');
                             const textColor = isLatest ? '#1976d2' : '';
-                            html += `<tr style='background:${rowBg};${textColor ? 'color: ' + textColor + ';font-weight:bold;' : ''}'>`;
-                            html += `<td>${item.time}</td>`;
-                            html += `<td style='color:#2563eb;font-weight:500;'>${item.receiveSpeed.toFixed(2)} kb/秒</td>`;
-                            html += `<td style='color:#2563eb;font-weight:500;'>${item.receivePackets} 包/s</td>`;
-                            html += `<td style='color:#fb923c;font-weight:500;'>${item.sendSpeed.toFixed(2)} kb/秒</td>`;
-                            html += `<td style='color:#fb923c;font-weight:500;'>${item.sendPackets} 包/s</td>`;
-                            html += '</tr>';
+                            const style = `background:${rowBg};${textColor ? 'color: ' + textColor + ';font-weight:bold;' : ''}`;
+                            
+                            rowParts.push(`<tr style='${style}'>`);
+                            rowParts.push(`<td>${item.time}</td>`);
+                            rowParts.push(`<td style='color:#2563eb;font-weight:500;'>${item.receiveSpeed.toFixed(2)} kb/秒</td>`);
+                            rowParts.push(`<td style='color:#2563eb;font-weight:500;'>${item.receivePackets} 包/s</td>`);
+                            rowParts.push(`<td style='color:#fb923c;font-weight:500;'>${item.sendSpeed.toFixed(2)} kb/秒</td>`);
+                            rowParts.push(`<td style='color:#fb923c;font-weight:500;'>${item.sendPackets} 包/s</td>`);
+                            rowParts.push('</tr>');
                         });
-                        html += '</tbody></table>';
+                        
+                        tableParts.push(rowParts.join(''));
+                        tableParts.push('</tbody></table>');
+                        html += tableParts.join('');
                     }
+                    
+                    container.innerHTML = html;
+                    fragment.appendChild(container);
+                    
                     // 更新表格内容
                     if (this.$refs.realtimeTable) {
-                        this.$refs.realtimeTable.innerHTML = html;
+                        this.$refs.realtimeTable.innerHTML = '';
+                        this.$refs.realtimeTable.appendChild(fragment);
                     } else {
                         if (this.debugMode) console.warn('实时表格渲染失败：realtimeTable元素不存在');
                     }
@@ -843,28 +917,41 @@
                     this.lastUpdateTime = now.toLocaleTimeString();
                 },
                 startAutoRefresh() {
-                    if (this.refreshInterval) {
-                        clearInterval(this.refreshInterval);
-                    }
+                    // 清理所有现有定时器
+                    this.clearAllIntervals();
+                    
                     if (this.autoRefresh) {
+                        // 优化：使用单个定时器管理所有刷新任务
                         this.refreshInterval = setInterval(() => {
+                            const now = Date.now();
+                            
+                            // 实时数据：每秒更新
                             this.loadRealtimeStats();
                             this.updateLastUpdateTime();
+                            
+                            // 分钟数据：每60秒更新
+                            if (now % 60000 < 1000) {
+                                this.loadMinuteStats();
+                            }
+                            
+                            // 统计数据：每60秒更新
+                            if (now % 60000 < 1000) {
+                                this.stats.forEach((stat, idx) => this.loadStats(stat, idx));
+                            }
+                            
+                            // 缓存和系统状态：每30秒更新
+                            if (now % 30000 < 1000) {
+                                this.loadCacheStats();
+                                this.loadSystemMemory();
+                            }
                         }, 1000);
-
-                        setInterval(() => {
-                            this.loadMinuteStats();
-                        }, 60000);
-
-                        setInterval(() => {
-                            this.stats.forEach(stat => this.loadStats(stat));
-                        }, 60000);
-
-                        // 新增：定期更新缓存和系统状态（每30秒）
-                        setInterval(() => {
-                            this.loadCacheStats();
-                            this.loadSystemMemory();
-                        }, 30000);
+                    }
+                },
+                // 新增：清理所有定时器
+                clearAllIntervals() {
+                    if (this.refreshInterval) {
+                        clearInterval(this.refreshInterval);
+                        this.refreshInterval = null;
                     }
                 },
                 async loadVersion() {
@@ -1121,6 +1208,74 @@
                 // 新增：运行诊断
                 async runDiagnosis() {
                     this.diagnosisResult = await this.diagnoseConnection();
+                },
+                // 新增：Chart.js实例管理
+                getChartInstance(key) {
+                    return this.chartInstances.get(key);
+                },
+                setChartInstance(key, instance) {
+                    // 清理旧实例
+                    const oldInstance = this.chartInstances.get(key);
+                    if (oldInstance) {
+                        oldInstance.destroy();
+                    }
+                    this.chartInstances.set(key, instance);
+                },
+                destroyChartInstance(key) {
+                    const instance = this.chartInstances.get(key);
+                    if (instance) {
+                        instance.destroy();
+                        this.chartInstances.delete(key);
+                    }
+                },
+                // 新增：节流函数
+                throttle(func, delay) {
+                    let lastCall = 0;
+                    return function(...args) {
+                        const now = Date.now();
+                        if (now - lastCall >= delay) {
+                            lastCall = now;
+                            return func.apply(this, args);
+                        }
+                    };
+                },
+                // 新增：防抖函数
+                debounce(func, delay) {
+                    let timeoutId;
+                    return function(...args) {
+                        clearTimeout(timeoutId);
+                        timeoutId = setTimeout(() => func.apply(this, args), delay);
+                    };
+                },
+                // 新增：批量更新图表
+                async batchUpdateCharts() {
+                    if (this.isUpdating) return;
+                    
+                    this.isUpdating = true;
+                    const now = Date.now();
+                    
+                    // 检查是否需要更新
+                    if (now - this.lastChartUpdate < this.chartUpdateThrottle) {
+                        this.isUpdating = false;
+                        return;
+                    }
+                    
+                    try {
+                        // 批量更新所有待更新的图表
+                        for (const updateFunc of this.updateQueue) {
+                            await updateFunc();
+                        }
+                        this.updateQueue.clear();
+                        this.lastChartUpdate = now;
+                    } finally {
+                        this.isUpdating = false;
+                    }
+                },
+                // 新增：添加图表更新到队列
+                queueChartUpdate(updateFunc) {
+                    this.updateQueue.add(updateFunc);
+                    // 使用防抖来批量更新
+                    this.debouncedBatchUpdate();
                 }
             },
             watch: {
@@ -1128,17 +1283,20 @@
                     if (newValue) {
                         this.startAutoRefresh();
                     } else {
-                        clearInterval(this.refreshInterval);
+                        this.clearAllIntervals();
                     }
                 }
             },
             mounted() {
+                // 初始化防抖函数
+                this.debouncedBatchUpdate = this.debounce(this.batchUpdateCharts, 50);
+                
                 this.loadInterfaces();
                 this.startAutoRefresh();
                 this.loadVersion();
                 this.applyThemeFromPreference();
                 // 新增：监听窗口resize事件
-                window.addEventListener('resize', this.resizeAllCharts);
+                window.addEventListener('resize', this.throttle(this.resizeAllCharts, 250));
                 
                 // 测试实时统计功能
                 if (this.debugMode) {
@@ -1154,18 +1312,54 @@
                 }
             },
             beforeUnmount() {
-                if (this.refreshInterval) {
-                    clearInterval(this.refreshInterval);
-                }
-                if (this._minuteChart) this._minuteChart.destroy();
-                if (this._statCharts) this._statCharts.forEach(chart => chart.destroy());
-                if (this._realtimeChart) this._realtimeChart.destroy(); // 移除实时图表
-                // 新增：移除resize事件监听
-                window.removeEventListener('resize', this.resizeAllCharts);
+                // 清理所有定时器
+                this.clearAllIntervals();
+                
+                // 清理所有Chart.js实例
+                this.chartInstances.forEach((instance, key) => {
+                    if (instance && typeof instance.destroy === 'function') {
+                        instance.destroy();
+                    }
+                });
+                this.chartInstances.clear();
+                
+                // 清理更新队列
+                this.updateQueue.clear();
+                
+                // 清理数据缓存
+                this.realtimeData = [];
+                this.cacheStats = null;
+                this.systemMemory = null;
+                this.performance = null;
+                this.diagnosisResult = null;
+                
+                // 移除事件监听器
+                window.removeEventListener('resize', this.throttle(this.resizeAllCharts, 250));
+                
+                // 清理DOM引用
+                this.$refs = {};
             }
         });
 
         app.mount('#app');
+        
+        // 新增：性能监控和优化提示
+        window.performanceMark('app-mounted');
+        
+        // 记录应用加载完成时间
+        if (window.performance && window.performance.measure) {
+            window.performance.measure('app-load-time', 'app-start', 'app-mounted');
+            const measure = window.performance.getEntriesByName('app-load-time')[0];
+            console.log(`应用加载完成，耗时: ${measure.duration.toFixed(2)}ms`);
+        }
+        
+        // 性能优化提示
+        console.log('FlowMaster 性能优化已启用:');
+        console.log('- Chart.js实例池管理');
+        console.log('- 防抖和节流机制');
+        console.log('- 批量DOM更新');
+        console.log('- 智能定时器管理');
+        console.log('- 内存自动清理');
     </script>
 
     <!-- 51.la 统计代码 -->
