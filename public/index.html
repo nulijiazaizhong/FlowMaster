@@ -329,6 +329,11 @@
                         <span v-if="isDarkMode">🌙</span>
                         <span v-else>☀️</span>
                     </button>
+                    <!-- 调试模式开关 -->
+                    <button class="btn btn-sm ms-2" :class="debugMode ? 'btn-warning' : 'btn-outline-warning'" @click="toggleDebugMode" :aria-label="debugMode ? '关闭调试' : '开启调试'" style="vertical-align:middle;">
+                        <span v-if="debugMode">🐛</span>
+                        <span v-else>🔧</span>
+                    </button>
                     <div class="update-time" v-if="lastUpdateTime">
                         最后更新: {{lastUpdateTime}}
                     </div>
@@ -741,7 +746,8 @@
                         loading: false
                     },
                     isDarkMode: false,
-                    realtimeData: [] // 存储最近20条实时数据记录
+                    realtimeData: [], // 存储最近20条实时数据记录
+                    debugMode: false // 调试模式开关
                 }
             },
             computed: {
@@ -986,9 +992,13 @@
                 async loadRealtimeStats() {
                     this.realtimeStats.loading = true;
                     try {
+                        if (this.debugMode) console.log('开始加载实时统计数据...');
                         const response = await axios.get(`/api/stats/${this.selectedInterface}/l`);
+                        
                         // 解析实时数据
                         const rawData = response.data.data;
+                        if (this.debugMode) console.log('收到原始实时数据:', rawData);
+                        
                         const parsedData = this.parseRealtimeData(rawData);
                         
                         if (parsedData) {
@@ -998,17 +1008,35 @@
                                 this.realtimeData.shift();
                             }
                             
+                            if (this.debugMode) console.log('实时数据解析成功，当前历史数据条数:', this.realtimeData.length);
+                            
                             // 更新图表和表格
                             this.$nextTick(() => {
                                 this.renderRealtimeChart();
                                 this.renderRealtimeTable();
                             });
+                        } else {
+                            if (this.debugMode) console.warn('实时数据解析失败，但继续显示原始数据');
                         }
                         
                         // 保持原有数据格式用于兼容
                         this.realtimeStats.data = rawData.filter(line => line.trim());
+                        
+                        // 确保图表和表格始终更新
+                        this.$nextTick(() => {
+                            this.renderRealtimeChart();
+                            this.renderRealtimeTable();
+                        });
+                        
                     } catch (error) {
+                        console.error('加载实时统计数据失败:', error);
                         this.realtimeStats.data = ['错误: ' + (error.response?.data?.error || error.message)];
+                        
+                        // 即使出错也要尝试渲染
+                        this.$nextTick(() => {
+                            this.renderRealtimeChart();
+                            this.renderRealtimeTable();
+                        });
                     }
                     this.realtimeStats.loading = false;
                 },
@@ -1018,7 +1046,7 @@
                     const sendLine = rawData.find(line => line.includes('发送'));
                     
                     if (!receiveLine || !sendLine) {
-                        console.warn('实时数据解析失败：未找到接收或发送行', rawData);
+                        if (this.debugMode) console.warn('实时数据解析失败：未找到接收或发送行', rawData);
                         return null;
                     }
                     
@@ -1032,7 +1060,7 @@
                     const sendMatch = sendLine.match(speedPattern);
                     
                     if (!receiveMatch || !sendMatch) {
-                        console.warn('实时数据解析失败：正则匹配失败', {
+                        if (this.debugMode) console.warn('实时数据解析失败：正则匹配失败', {
                             receiveLine,
                             sendLine,
                             receiveMatch,
@@ -1056,18 +1084,18 @@
                     // 验证解析结果
                     if (isNaN(parsedData.receiveSpeed) || isNaN(parsedData.sendSpeed) || 
                         isNaN(parsedData.receivePackets) || isNaN(parsedData.sendPackets)) {
-                        console.warn('实时数据解析失败：数值转换失败', parsedData);
+                        if (this.debugMode) console.warn('实时数据解析失败：数值转换失败', parsedData);
                         return null;
                     }
                     
-                    console.log('实时数据解析成功:', parsedData);
+                    if (this.debugMode) console.log('实时数据解析成功:', parsedData);
                     return parsedData;
                 },
                 renderRealtimeChart() {
                     if (this._realtimeChart) this._realtimeChart.destroy();
                     const ctx = this.$refs.realtimeChart;
                     if (!ctx) {
-                        console.warn('实时图表渲染失败：canvas元素不存在');
+                        if (this.debugMode) console.warn('实时图表渲染失败：canvas元素不存在');
                         return;
                     }
                     
@@ -1085,7 +1113,7 @@
                     // 如果没有数据，创建默认数据点
                     let labels, receiveSpeeds, sendSpeeds;
                     if (chartData.length === 0) {
-                        console.log('实时图表：使用默认数据');
+                        if (this.debugMode) console.log('实时图表：使用默认数据');
                         const now = new Date();
                         labels = [now.toLocaleTimeString()];
                         receiveSpeeds = [0];
@@ -1121,32 +1149,46 @@
                     });
                 },
                 renderRealtimeTable() {
-                    if (this.realtimeData.length === 0) return;
-                    
                     // 生成表格HTML
-                    const tableData = this.realtimeData.slice(-20); // 最近20条
                     let html = `<div style='font-weight:bold;margin-bottom:4px;'>实时流量统计</div>`;
-                    html += '<table class="table table-sm table-bordered mb-0" style="font-size:13px;">';
-                    html += '<thead><tr><th>时间</th><th>接收速度</th><th>接收数据包</th><th>发送速度</th><th>发送数据包</th></tr></thead>';
-                    html += '<tbody>';
                     
-                    tableData.forEach((item, index) => {
-                        const isLatest = index === tableData.length - 1;
-                        const rowBg = isLatest ? '#e3f2fd' : (index % 2 === 0 ? '#fff' : '#f6f8fa');
-                        const textColor = isLatest ? '#1976d2' : '';
-                        html += `<tr style='background:${rowBg};${textColor ? 'color: ' + textColor + ';font-weight:bold;' : ''}'>`;
-                        html += `<td>${item.time}</td>`;
-                        html += `<td style='color:#2563eb;font-weight:500;'>${item.receiveSpeed} ${item.receiveSpeedUnit}</td>`;
-                        html += `<td style='color:#2563eb;font-weight:500;'>${item.receivePackets} 包/s</td>`;
-                        html += `<td style='color:#fb923c;font-weight:500;'>${item.sendSpeed} ${item.sendSpeedUnit}</td>`;
-                        html += `<td style='color:#fb923c;font-weight:500;'>${item.sendPackets} 包/s</td>`;
-                        html += '</tr>';
-                    });
-                    
-                    html += '</tbody></table>';
+                    if (this.realtimeData.length === 0) {
+                        // 显示原始数据作为降级方案
+                        html += `<div style="color:#666;font-style:italic;padding:10px;">暂无实时数据，显示原始数据：</div>`;
+                        if (this.realtimeStats.data && this.realtimeStats.data.length > 0) {
+                            html += `<pre style="font-size:12px;background:#f8f9fa;padding:8px;border-radius:4px;">${this.realtimeStats.data.join('\n')}</pre>`;
+                        } else {
+                            html += `<div style="color:#999;text-align:center;padding:20px;">暂无数据</div>`;
+                        }
+                    } else {
+                        // 显示解析后的数据表格
+                        const tableData = this.realtimeData.slice(-20); // 最近20条
+                        html += '<table class="table table-sm table-bordered mb-0" style="font-size:13px;">';
+                        html += '<thead><tr><th>时间</th><th>接收速度</th><th>接收数据包</th><th>发送速度</th><th>发送数据包</th></tr></thead>';
+                        html += '<tbody>';
+                        
+                        tableData.forEach((item, index) => {
+                            const isLatest = index === tableData.length - 1;
+                            const rowBg = isLatest ? '#e3f2fd' : (index % 2 === 0 ? '#fff' : '#f6f8fa');
+                            const textColor = isLatest ? '#1976d2' : '';
+                            html += `<tr style='background:${rowBg};${textColor ? 'color: ' + textColor + ';font-weight:bold;' : ''}'>`;
+                            html += `<td>${item.time}</td>`;
+                            html += `<td style='color:#2563eb;font-weight:500;'>${item.receiveSpeed} ${item.receiveSpeedUnit}</td>`;
+                            html += `<td style='color:#2563eb;font-weight:500;'>${item.receivePackets} 包/s</td>`;
+                            html += `<td style='color:#fb923c;font-weight:500;'>${item.sendSpeed} ${item.sendSpeedUnit}</td>`;
+                            html += `<td style='color:#fb923c;font-weight:500;'>${item.sendPackets} 包/s</td>`;
+                            html += '</tr>';
+                        });
+                        
+                        html += '</tbody></table>';
+                    }
                     
                     // 更新表格内容
-                    this.$refs.realtimeTable.innerHTML = html;
+                    if (this.$refs.realtimeTable) {
+                        this.$refs.realtimeTable.innerHTML = html;
+                    } else {
+                        if (this.debugMode) console.warn('实时表格渲染失败：realtimeTable元素不存在');
+                    }
                 },
                 async loadMinuteStats() {
                     this.minuteStats.loading = true;
@@ -1283,6 +1325,10 @@
                     document.body.classList.toggle('dark', this.isDarkMode);
                     localStorage.setItem('theme', this.isDarkMode ? 'dark' : 'light');
                 },
+                toggleDebugMode() {
+                    this.debugMode = !this.debugMode;
+                    localStorage.setItem('debugMode', this.debugMode);
+                },
                 applyThemeFromPreference() {
                     // 优先用户选择，默认浅色模式
                     const userTheme = localStorage.getItem('theme');
@@ -1293,6 +1339,13 @@
                         // 默认浅色模式，移除系统主题跟随
                         this.isDarkMode = false;
                         document.body.classList.remove('dark');
+                    }
+                    // 应用调试模式
+                    const userDebugMode = localStorage.getItem('debugMode');
+                    if (userDebugMode === 'true') {
+                        this.debugMode = true;
+                    } else {
+                        this.debugMode = false;
                     }
                 }
             },
@@ -1312,6 +1365,19 @@
                 this.applyThemeFromPreference();
                 // 新增：监听窗口resize事件
                 window.addEventListener('resize', this.resizeAllCharts);
+                
+                // 测试实时统计功能
+                if (this.debugMode) {
+                    console.log('FlowMaster 实时统计功能测试开始...');
+                    // 模拟测试数据
+                    setTimeout(() => {
+                        if (this.realtimeData.length === 0) {
+                            console.warn('测试：实时数据为空，降级显示机制应该生效');
+                        } else {
+                            console.log('测试：实时数据正常，共', this.realtimeData.length, '条记录');
+                        }
+                    }, 3000);
+                }
             },
             beforeUnmount() {
                 if (this.refreshInterval) {
