@@ -753,9 +753,16 @@ type(scope): description
 如果这个项目对你有帮助，欢迎：
 
 - ⭐ **Star**: 给项目点个星
+
 - 🍴 **Fork**: 复制项目到你的仓库
+
 - 💡 **贡献**: 提交代码或建议
+
 - 📢 **分享**: 推荐给其他开发者
+
+- 🍴直接请作者喝咖啡
+
+  ![dsm](assets/dsm.jpg)
 
 ---
 
@@ -768,7 +775,7 @@ type(scope): description
 - [Express.js](https://expressjs.com/) - 快速、开放、极简的 Node.js Web 应用框架
 - [PM2](https://pm2.keymetrics.io/) - 生产环境进程管理器
 
-**感谢使用 FlowMaster！** ��
+**感谢使用 FlowMaster！** 
 
 *让网络流量监控变得简单而强大*
 
