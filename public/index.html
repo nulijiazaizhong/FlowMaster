@@ -585,6 +585,7 @@
                                 setTimeout(() => this.safeRenderChart(renderFunc, chartKey, tryCount + 1), 100);
                                 return;
                             }
+                            return; // 多次重试后直接 return
                         }
                         renderFunc();
                     } catch (e) {
@@ -596,6 +597,7 @@
                         } else if (this.debugMode) {
                             console.error(`Chart渲染多次重试仍失败[${chartKey}]`);
                         }
+                        // 多次重试后直接 return，不抛异常
                     }
                 },
                 // 优化后的 renderMinuteChart
@@ -813,7 +815,7 @@
                         const ctx = this.$refs.realtimeChart;
                         if (!ctx) {
                             if (this.debugMode) console.warn('realtimeChart ref 不存在');
-                            throw new Error('realtimeChart ref 不存在');
+                            return; // 这里直接 return，不要 throw
                         }
                         ctx.height = 200;
                         const parent = ctx.parentElement;
@@ -834,7 +836,7 @@
                         }
                         if (!labels.length) {
                             if (this.debugMode) console.warn('realtimeChart 数据为空');
-                            throw new Error('realtimeChart 数据为空');
+                            return; // 这里直接 return，不要 throw
                         }
                         this._realtimeChart = new Chart(ctx, {
                             type: 'line',
