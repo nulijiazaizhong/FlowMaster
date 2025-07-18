@@ -568,15 +568,30 @@
                     const num = parseFloat(match[1]);
                     return isNaN(num) ? val : (num * factor).toFixed(2);
                 },
-                // 新增：健壮的图表渲染函数，自动重试3次
+                // 升级：移动端健壮的图表渲染函数，canvas尺寸为0时延迟重试，最多10次
                 safeRenderChart(renderFunc, chartKey, tryCount = 0) {
                     try {
+                        // 自动推断ref
+                        let ctx = null;
+                        if (typeof chartKey === 'string' && chartKey.includes('Chart')) {
+                            let refKey = chartKey.replace(/^_/, '');
+                            ctx = this.$refs[refKey];
+                            if (Array.isArray(ctx)) ctx = ctx[0];
+                        }
+                        // 检查canvas尺寸
+                        if (ctx && (ctx.offsetWidth === 0 || ctx.offsetHeight === 0 || ctx.width === 0 || ctx.height === 0)) {
+                            if (this.debugMode) console.warn(`canvas尺寸为0，延迟重试[${chartKey}]`);
+                            if (tryCount < 10) {
+                                setTimeout(() => this.safeRenderChart(renderFunc, chartKey, tryCount + 1), 100);
+                                return;
+                            }
+                        }
                         renderFunc();
                     } catch (e) {
                         if (this.debugMode) {
                             console.warn(`Chart渲染失败[${chartKey}]，第${tryCount+1}次:`, e);
                         }
-                        if (tryCount < 3) {
+                        if (tryCount < 10) {
                             setTimeout(() => this.safeRenderChart(renderFunc, chartKey, tryCount + 1), 100);
                         } else if (this.debugMode) {
                             console.error(`Chart渲染多次重试仍失败[${chartKey}]`);

@@ -9,6 +9,10 @@ pre {
     overflow-x: auto;
     transition: all 0.3s ease;
 }
+canvas {
+    min-width: 200px;
+    min-height: 100px;
+  }
 .loading {
     position: relative;
     opacity: 0.7;
@@ -229,3 +233,4 @@ pre {
         scroll-behavior: auto !important;
     }
 } 
+
