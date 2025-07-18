@@ -568,98 +568,101 @@
                     const num = parseFloat(match[1]);
                     return isNaN(num) ? val : (num * factor).toFixed(2);
                 },
-                renderMinuteChart() {
-                    // 优化：使用实例池管理
-                    const chartKey = 'minuteChart';
-                    const existingChart = this.getChartInstance(chartKey);
-                    if (existingChart) {
-                        existingChart.destroy();
-                    }
-                    
-                    const ctx = this.$refs.minuteChart;
-                    // 修复自动刷新导致canvas高度异常
-                    if (ctx) {
-                        ctx.height = 180;
-                        // 新增：动态设置canvas宽度为父容器宽度
-                        const parent = ctx.parentElement;
-                        if (parent) {
-                            ctx.width = parent.clientWidth;
+                // 新增：健壮的图表渲染函数，自动重试3次
+                safeRenderChart(renderFunc, chartKey, tryCount = 0) {
+                    try {
+                        renderFunc();
+                    } catch (e) {
+                        if (this.debugMode) {
+                            console.warn(`Chart渲染失败[${chartKey}]，第${tryCount+1}次:`, e);
+                        }
+                        if (tryCount < 3) {
+                            setTimeout(() => this.safeRenderChart(renderFunc, chartKey, tryCount + 1), 100);
+                        } else if (this.debugMode) {
+                            console.error(`Chart渲染多次重试仍失败[${chartKey}]`);
                         }
                     }
-                    // 5分钟卡片单位固定为MiB
-                    const unit = 'MiB';
-                    const { labels, rx, tx } = this.parseStatData(this.minuteStats.data, unit);
-                    if (!labels.length) return;
-                    
-                    const chart = new Chart(ctx, {
-                        type: 'line',
-                        data: {
-                            labels,
-                            datasets: [
-                                { label: `接收(${unit})`, data: rx, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.08)', tension: 0.3, fill: true },
-                                { label: `发送(${unit})`, data: tx, borderColor: '#fb923c', backgroundColor: 'rgba(251,146,60,0.08)', tension: 0.3, fill: true }
-                            ]
-                        },
-                        options: {
-                            responsive: true,
-                            plugins: { legend: { display: true }, tooltip: { enabled: true } },
-                            scales: { y: { beginAtZero: true, title: { display: true, text: unit } } }
-                        }
-                    });
-                    
-                    // 保存到实例池
-                    this.setChartInstance(chartKey, chart);
                 },
+                // 优化后的 renderMinuteChart
+                renderMinuteChart() {
+                    this.safeRenderChart(() => {
+                        const chartKey = 'minuteChart';
+                        let ctx = this.$refs.minuteChart;
+                        if (!ctx) {
+                            if (this.debugMode) console.warn('minuteChart ref 不存在');
+                            throw new Error('minuteChart ref 不存在');
+                        }
+                        ctx.height = 180;
+                        const parent = ctx.parentElement;
+                        if (parent) ctx.width = parent.clientWidth;
+                        const unit = 'MiB';
+                        const { labels, rx, tx } = this.parseStatData(this.minuteStats.data, unit);
+                        if (!labels.length) {
+                            if (this.debugMode) console.warn('minuteChart 数据为空');
+                            throw new Error('minuteChart 数据为空');
+                        }
+                        const existingChart = this.getChartInstance(chartKey);
+                        if (existingChart) existingChart.destroy();
+                        const chart = new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels,
+                                datasets: [
+                                    { label: `接收(${unit})`, data: rx, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.08)', tension: 0.3, fill: true },
+                                    { label: `发送(${unit})`, data: tx, borderColor: '#fb923c', backgroundColor: 'rgba(251,146,60,0.08)', tension: 0.3, fill: true }
+                                ]
+                            },
+                            options: {
+                                responsive: true,
+                                plugins: { legend: { display: true }, tooltip: { enabled: true } },
+                                scales: { y: { beginAtZero: true, title: { display: true, text: unit } } }
+                            }
+                        });
+                        this.setChartInstance(chartKey, chart);
+                    }, 'minuteChart');
+                },
+                // 优化后的 renderStatChart
                 renderStatChart(index) {
-                    // 优化：使用实例池管理
-                    const chartKey = `statChart${index}`;
-                    const existingChart = this.getChartInstance(chartKey);
-                    if (existingChart) {
-                        existingChart.destroy();
-                    }
-                    
-                    // 兼容ref为数组或单个元素
-                    let ctx = this.$refs['statChart' + index];
-                    if (Array.isArray(ctx)) ctx = ctx[0];
-                    // 修复自动刷新导致canvas高度异常
-                    if (ctx) {
-                        // 年统计图表高度拉高
+                    this.safeRenderChart(() => {
+                        const chartKey = `statChart${index}`;
+                        let ctx = this.$refs['statChart' + index];
+                        if (Array.isArray(ctx)) ctx = ctx[0];
+                        if (!ctx) {
+                            if (this.debugMode) console.warn(`statChart${index} ref 不存在`);
+                            throw new Error(`statChart${index} ref 不存在`);
+                        }
                         const period = this.stats[index].period;
                         ctx.height = period === 'y' ? 320 : 180;
-                        // 新增：动态设置canvas宽度为父容器宽度
                         const parent = ctx.parentElement;
-                        if (parent) {
-                            ctx.width = parent.clientWidth;
+                        if (parent) ctx.width = parent.clientWidth;
+                        let unit = 'MiB';
+                        if (period === 'd' || period === 'm') unit = 'GiB';
+                        if (period === 'y') unit = 'TiB';
+                        const { labels, rx, tx } = this.parseStatData(this.stats[index].data, unit);
+                        if (!labels.length) {
+                            if (this.debugMode) console.warn(`statChart${index} 数据为空`);
+                            throw new Error(`statChart${index} 数据为空`);
                         }
-                    }
-                    // 根据周期强制单位
-                    let unit = 'MiB';
-                    const period = this.stats[index].period;
-                    if (period === 'd' || period === 'm') unit = 'GiB';
-                    if (period === 'y') unit = 'TiB';
-                    const { labels, rx, tx } = this.parseStatData(this.stats[index].data, unit);
-                    if (!labels.length) return;
-                    // 年统计用柱状图，其余用折线图
-                    const chartType = period === 'y' ? 'bar' : 'line';
-                    
-                    const chart = new Chart(ctx, {
-                        type: chartType,
-                        data: {
-                            labels,
-                            datasets: [
-                                { label: `接收(${unit})`, data: rx, backgroundColor: period === 'y' ? '#2563eb' : 'rgba(37,99,235,0.08)', borderColor: '#2563eb', tension: 0.3, fill: period !== 'y' },
-                                { label: `发送(${unit})`, data: tx, backgroundColor: period === 'y' ? '#fb923c' : 'rgba(251,146,60,0.08)', borderColor: '#fb923c', tension: 0.3, fill: period !== 'y' }
-                            ]
-                        },
-                        options: {
-                            responsive: true,
-                            plugins: { legend: { display: true }, tooltip: { enabled: true } },
-                            scales: { y: { beginAtZero: true, title: { display: true, text: unit } } }
-                        }
-                    });
-                    
-                    // 保存到实例池
-                    this.setChartInstance(chartKey, chart);
+                        const existingChart = this.getChartInstance(chartKey);
+                        if (existingChart) existingChart.destroy();
+                        const chartType = period === 'y' ? 'bar' : 'line';
+                        const chart = new Chart(ctx, {
+                            type: chartType,
+                            data: {
+                                labels,
+                                datasets: [
+                                    { label: `接收(${unit})`, data: rx, backgroundColor: period === 'y' ? '#2563eb' : 'rgba(37,99,235,0.08)', borderColor: '#2563eb', tension: 0.3, fill: period !== 'y' },
+                                    { label: `发送(${unit})`, data: tx, backgroundColor: period === 'y' ? '#fb923c' : 'rgba(251,146,60,0.08)', borderColor: '#fb923c', tension: 0.3, fill: period !== 'y' }
+                                ]
+                            },
+                            options: {
+                                responsive: true,
+                                plugins: { legend: { display: true }, tooltip: { enabled: true } },
+                                scales: { y: { beginAtZero: true, title: { display: true, text: unit } } }
+                            }
+                        });
+                        this.setChartInstance(chartKey, chart);
+                    }, `statChart${index}`);
                 },
                 // 新增：统一重绘所有图表（窗口resize时调用）
                 resizeAllCharts() {
@@ -789,57 +792,59 @@
                     return parsedData;
                 },
                 renderRealtimeChart() {
-                    if (this._realtimeChart) this._realtimeChart.destroy();
-                    const ctx = this.$refs.realtimeChart;
-                    if (!ctx) {
-                        if (this.debugMode) console.warn('实时图表渲染失败：canvas元素不存在');
-                        return;
-                    }
-                    // 设置canvas尺寸
-                    ctx.height = 200;
-                    const parent = ctx.parentElement;
-                    if (parent) {
-                        ctx.width = parent.clientWidth;
-                    }
-                    // 准备图表数据（最近1分钟）
-                    const oneMinuteAgo = Date.now() - 1 * 60 * 1000;
-                    const chartData = this.realtimeData.filter(item => item.timestamp >= oneMinuteAgo);
-                    // 如果没有数据，创建默认数据点
-                    let labels, receiveSpeeds, sendSpeeds;
-                    if (chartData.length === 0) {
-                        if (this.debugMode) console.log('实时图表：使用默认数据');
-                        const now = new Date();
-                        labels = [now.toLocaleTimeString()];
-                        receiveSpeeds = [0];
-                        sendSpeeds = [0];
-                    } else {
-                        labels = chartData.map(item => item.time);
-                        receiveSpeeds = chartData.map(item => item.receiveSpeed); // 已为kb/s
-                        sendSpeeds = chartData.map(item => item.sendSpeed); // 已为kb/s
-                    }
-                    this._realtimeChart = new Chart(ctx, {
-                        type: 'line',
-                        data: {
-                            labels,
-                            datasets: [
-                                { label: '接收速度(kb/秒)', data: receiveSpeeds, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.08)', tension: 0.3, fill: true },
-                                { label: '发送速度(kb/秒)', data: sendSpeeds, borderColor: '#fb923c', backgroundColor: 'rgba(251,146,60,0.08)', tension: 0.3, fill: true }
-                            ]
-                        },
-                        options: {
-                            responsive: true,
-                            plugins: { 
-                                legend: { display: true }, 
-                                tooltip: { enabled: true } 
-                            },
-                            scales: { 
-                                y: { 
-                                    beginAtZero: true, 
-                                    title: { display: true, text: '速度 (kb/秒)' } 
-                                } 
-                            }
+                    this.safeRenderChart(() => {
+                        const chartKey = '_realtimeChart';
+                        if (this._realtimeChart) this._realtimeChart.destroy();
+                        const ctx = this.$refs.realtimeChart;
+                        if (!ctx) {
+                            if (this.debugMode) console.warn('realtimeChart ref 不存在');
+                            throw new Error('realtimeChart ref 不存在');
                         }
-                    });
+                        ctx.height = 200;
+                        const parent = ctx.parentElement;
+                        if (parent) ctx.width = parent.clientWidth;
+                        const oneMinuteAgo = Date.now() - 1 * 60 * 1000;
+                        const chartData = this.realtimeData.filter(item => item.timestamp >= oneMinuteAgo);
+                        let labels, receiveSpeeds, sendSpeeds;
+                        if (chartData.length === 0) {
+                            if (this.debugMode) console.log('实时图表：使用默认数据');
+                            const now = new Date();
+                            labels = [now.toLocaleTimeString()];
+                            receiveSpeeds = [0];
+                            sendSpeeds = [0];
+                        } else {
+                            labels = chartData.map(item => item.time);
+                            receiveSpeeds = chartData.map(item => item.receiveSpeed);
+                            sendSpeeds = chartData.map(item => item.sendSpeed);
+                        }
+                        if (!labels.length) {
+                            if (this.debugMode) console.warn('realtimeChart 数据为空');
+                            throw new Error('realtimeChart 数据为空');
+                        }
+                        this._realtimeChart = new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels,
+                                datasets: [
+                                    { label: '接收速度(kb/秒)', data: receiveSpeeds, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.08)', tension: 0.3, fill: true },
+                                    { label: '发送速度(kb/秒)', data: sendSpeeds, borderColor: '#fb923c', backgroundColor: 'rgba(251,146,60,0.08)', tension: 0.3, fill: true }
+                                ]
+                            },
+                            options: {
+                                responsive: true,
+                                plugins: { 
+                                    legend: { display: true }, 
+                                    tooltip: { enabled: true } 
+                                },
+                                scales: { 
+                                    y: { 
+                                        beginAtZero: true, 
+                                        title: { display: true, text: '速度 (kb/秒)' } 
+                                    } 
+                                }
+                            }
+                        });
+                    }, '_realtimeChart');
                 },
                 renderRealtimeTable() {
                     // 优化：使用DocumentFragment减少DOM操作
@@ -1296,45 +1301,40 @@
                 },
                 // 新增：渲染指定日期查询结果图表
                 renderDateRangeChart() {
-                    // 使用实例池管理
-                    const chartKey = 'dateRangeChart';
-                    const existingChart = this.getChartInstance(chartKey);
-                    if (existingChart) {
-                        existingChart.destroy();
-                    }
-                    
-                    const ctx = this.$refs.dateRangeChart;
-                    if (!ctx) return;
-                    
-                    // 设置canvas尺寸
-                    ctx.height = 180;
-                    const parent = ctx.parentElement;
-                    if (parent) {
-                        ctx.width = parent.clientWidth;
-                    }
-                    
-                    // 解析数据，过滤掉总计行
-                    const { labels, rx, tx } = this.parseStatData(this.dateRangeStats.data, this.dateRangeStats.unit);
-                    if (!labels.length) return;
-                    
-                    const chart = new Chart(ctx, {
-                        type: 'line',
-                        data: {
-                            labels,
-                            datasets: [
-                                { label: `接收(${this.dateRangeStats.unit})`, data: rx, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.08)', tension: 0.3, fill: true },
-                                { label: `发送(${this.dateRangeStats.unit})`, data: tx, borderColor: '#fb923c', backgroundColor: 'rgba(251,146,60,0.08)', tension: 0.3, fill: true }
-                            ]
-                        },
-                        options: {
-                            responsive: true,
-                            plugins: { legend: { display: true }, tooltip: { enabled: true } },
-                            scales: { y: { beginAtZero: true, title: { display: true, text: this.dateRangeStats.unit } } }
+                    this.safeRenderChart(() => {
+                        const chartKey = 'dateRangeChart';
+                        const existingChart = this.getChartInstance(chartKey);
+                        if (existingChart) existingChart.destroy();
+                        const ctx = this.$refs.dateRangeChart;
+                        if (!ctx) {
+                            if (this.debugMode) console.warn('dateRangeChart ref 不存在');
+                            throw new Error('dateRangeChart ref 不存在');
                         }
-                    });
-                    
-                    // 保存到实例池
-                    this.setChartInstance(chartKey, chart);
+                        ctx.height = 180;
+                        const parent = ctx.parentElement;
+                        if (parent) ctx.width = parent.clientWidth;
+                        const { labels, rx, tx } = this.parseStatData(this.dateRangeStats.data, this.dateRangeStats.unit);
+                        if (!labels.length) {
+                            if (this.debugMode) console.warn('dateRangeChart 数据为空');
+                            throw new Error('dateRangeChart 数据为空');
+                        }
+                        const chart = new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels,
+                                datasets: [
+                                    { label: `接收(${this.dateRangeStats.unit})`, data: rx, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.08)', tension: 0.3, fill: true },
+                                    { label: `发送(${this.dateRangeStats.unit})`, data: tx, borderColor: '#fb923c', backgroundColor: 'rgba(251,146,60,0.08)', tension: 0.3, fill: true }
+                                ]
+                            },
+                            options: {
+                                responsive: true,
+                                plugins: { legend: { display: true }, tooltip: { enabled: true } },
+                                scales: { y: { beginAtZero: true, title: { display: true, text: this.dateRangeStats.unit } } }
+                            }
+                        });
+                        this.setChartInstance(chartKey, chart);
+                    }, 'dateRangeChart');
                 },
                 // 新增：添加图表更新到队列
                 queueChartUpdate(updateFunc) {
