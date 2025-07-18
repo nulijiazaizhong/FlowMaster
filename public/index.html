@@ -585,7 +585,13 @@
                         }
                         if (!ctx || ctx.offsetWidth === 0 || ctx.offsetHeight === 0) {
                             if (this.debugMode) console.warn(`${refKey} ref 不存在或尺寸为0，放弃本次渲染`);
+                            // 可选：显示友好提示
                             return;
+                        }
+                        // 修正canvas宽高，确保填满父容器
+                        if (ctx.parentElement) {
+                            ctx.width = ctx.parentElement.clientWidth;
+                            ctx.height = ctx.parentElement.clientHeight || 200;
                         }
                         if (this.getChartInstance(chartKey)) this.getChartInstance(chartKey).destroy();
                         const { labels, rx, tx } = getChartData();
@@ -593,13 +599,17 @@
                             if (this.debugMode) console.warn(`${refKey} 数据为空，放弃本次渲染`);
                             return;
                         }
+                        // 颜色区分：bar用淡色，line用深色
+                        const isBar = chartType === 'bar';
+                        const rxColor = isBar ? '#bcdffb' : '#2563eb';
+                        const txColor = isBar ? '#fde2cf' : '#fb923c';
                         const chart = new Chart(ctx, {
                             type: chartType,
                             data: {
                                 labels,
                                 datasets: [
-                                    { label: `接收(${unit})`, data: rx, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.08)', tension: 0.3, fill: chartType !== 'bar' },
-                                    { label: `发送(${unit})`, data: tx, borderColor: '#fb923c', backgroundColor: 'rgba(251,146,60,0.08)', tension: 0.3, fill: chartType !== 'bar' }
+                                    { label: `接收(${unit})`, data: rx, backgroundColor: rxColor, borderColor: '#2563eb', tension: 0.3, fill: !isBar },
+                                    { label: `发送(${unit})`, data: tx, backgroundColor: txColor, borderColor: '#fb923c', tension: 0.3, fill: !isBar }
                                 ]
                             },
                             options: Object.assign({
