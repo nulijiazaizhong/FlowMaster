@@ -337,6 +337,132 @@ function filterStatsByTime(lines, period) {
     });
 }
 
+// ========== 主动定时采集和缓存vnstat数据 ========== //
+const REALTIME_CACHE_SIZE = 20;
+const REALTIME_INTERVAL = 5000; // 5秒
+const PERIODS = ['5', 'h', 'd', 'm', 'y'];
+const PERIOD_INTERVAL = 3 * 60 * 1000; // 3分钟
+
+// 记录已采集的接口，避免重复定时
+const startedRealtime = new Set();
+const startedPeriod = new Set();
+
+function scheduleRealtimeCollection(interfaceName) {
+    if (startedRealtime.has(interfaceName)) return;
+    startedRealtime.add(interfaceName);
+    setInterval(() => {
+        exec(`vnstat -tr 5 -i ${interfaceName}`, (error, stdout, stderr) => {
+            if (!error && stdout) {
+                const translatedOutput = translateOutput(stdout);
+                let queue = cacheManager.get(`realtime:${interfaceName}`) || [];
+                queue.push(translatedOutput.split('\n'));
+                if (queue.length > REALTIME_CACHE_SIZE) queue.shift();
+                cacheManager.set(`realtime:${interfaceName}`, queue, REALTIME_CACHE_SIZE * REALTIME_INTERVAL);
+            }
+        });
+    }, REALTIME_INTERVAL);
+}
+
+function schedulePeriodCollection(interfaceName, period) {
+    const key = `${interfaceName}:${period}`;
+    if (startedPeriod.has(key)) return;
+    startedPeriod.add(key);
+    setInterval(() => {
+        let cmd = period === '5' ? `vnstat -5 -i ${interfaceName}` : `vnstat -${period} -i ${interfaceName}`;
+        exec(cmd, (error, stdout, stderr) => {
+            if (!error && stdout) {
+                let translatedOutput = translateOutput(stdout);
+                let lines = translatedOutput.split('\n');
+                // 过滤和单位归一化处理（复用getStatsWithoutCache的逻辑）
+                switch(period) {
+                    case '5': lines = filterStatsByTime(lines, 'minutes'); break;
+                    case 'h': lines = filterStatsByTime(lines, 'hours'); break;
+                    case 'd': lines = filterStatsByTime(lines, 'days'); break;
+                }
+                // 单位归一化
+                const periodUnitMap = { '5': 'MiB', 'h': 'MiB', 'd': 'GiB', 'm': 'GiB', 'y': 'TiB' };
+                const targetUnit = periodUnitMap[period] || 'MiB';
+                function normalizeValue(val, targetUnit) {
+                    if (!val) return val;
+                    const match = val.match(/([\d.]+)\s*(MiB|GiB|TiB)?/i);
+                    if (!match) return val;
+                    const num = parseFloat(match[1]);
+                    const unit = (match[2] || 'MiB').toUpperCase();
+                    let normalizedNum = num;
+                    if (unit === 'GIB') normalizedNum *= 1024;
+                    if (unit === 'TIB') normalizedNum *= 1024 * 1024;
+                    if (targetUnit === 'GiB') {
+                        normalizedNum = normalizedNum / 1024;
+                        return `${normalizedNum.toFixed(2)} GiB`;
+                    } else if (targetUnit === 'TiB') {
+                        normalizedNum = normalizedNum / (1024 * 1024);
+                        return `${normalizedNum.toFixed(2)} TiB`;
+                    } else {
+                        return `${normalizedNum.toFixed(2)} MiB`;
+                    }
+                }
+                lines = lines.map((line, idx) => {
+                    if (line.includes('---') || !line.trim()) return line;
+                    if ((period === 'm' || period === 'y') && line.includes('预计')) return null;
+                    // 强制修正表头
+                    if (line.includes('接收') &&
+                        (line.includes('时间') || line.includes('小时') || line.includes('日期') || line.includes('月份') || line.includes('年份'))
+                    ) {
+                        if (line.includes('时间')) return `时间\t| 接收(${targetUnit})\t| 发送(${targetUnit})\t| 总计(${targetUnit})\t| 平均速率`;
+                        if (line.includes('小时')) return `小时\t| 接收(${targetUnit})\t| 发送(${targetUnit})\t| 总计(${targetUnit})\t| 平均速率`;
+                        if (line.includes('日期')) return `日期\t| 接收(${targetUnit})\t| 发送(${targetUnit})\t| 总计(${targetUnit})\t| 平均速率`;
+                        if (line.includes('月份')) return `月份\t| 接收(${targetUnit})\t| 发送(${targetUnit})\t| 总计(${targetUnit})\t| 平均速率`;
+                        if (line.includes('年份')) return `年份\t| 接收(${targetUnit})\t| 发送(${targetUnit})\t| 总计(${targetUnit})\t| 平均速率`;
+                    }
+                    // 分隔符
+                    line = line.replace(/^(\s*\d{2}(:\d{2})?)(\s+)/, '$1 |$3');
+                    line = line.replace(/^(\s*\d{4}-\d{2}-\d{2})(\s+)/, '$1 |$2');
+                    line = line.replace(/^(\s*\d{4}-\d{2})(\s+)/, '$1 |$2');
+                    line = line.replace(/^(\s*\d{4})(\s+)/, '$1 |$2');
+                    if (['5', 'h', 'd', 'm', 'y'].includes(period)) {
+                        let parts = line.split('|');
+                        if (parts.length < 5) return line;
+                        let rx = parts[1].trim();
+                        let tx = parts[2].trim();
+                        let total = parts[3].trim();
+                        parts[1] = ' ' + normalizeValue(rx, targetUnit);
+                        parts[2] = ' ' + normalizeValue(tx, targetUnit);
+                        parts[3] = ' ' + normalizeValue(total, targetUnit);
+                        return parts.join('|');
+                    }
+                    return line;
+                }).filter(Boolean);
+                const result = { data: lines };
+                cacheManager.set(`stats:${interfaceName}:${period}`, result, PERIOD_INTERVAL * 2);
+            }
+        });
+    }, PERIOD_INTERVAL);
+}
+
+// 启动时获取所有接口并为每个接口启动定时采集
+function startAllScheduledCollections() {
+    exec('vnstat --iflist', (error, stdout, stderr) => {
+        let allInterfaces = [];
+        if (!error && stdout) {
+            allInterfaces = stdout
+                .split('\n')
+                .find(line => line.includes('Available interfaces:'))
+                ?.replace('Available interfaces:', '')
+                .trim()
+                .split(' ')
+                .filter(Boolean) || [];
+        }
+        if (allInterfaces.length === 0) allInterfaces = ['eth0'];
+        allInterfaces.forEach(iface => {
+            scheduleRealtimeCollection(iface);
+            PERIODS.forEach(period => schedulePeriodCollection(iface, period));
+        });
+    });
+}
+
+// 启动定时采集
+startAllScheduledCollections();
+
 // 启用CORS和JSON解析
 app.use(cors());
 app.use(express.json());
@@ -405,37 +531,32 @@ app.get('/api/interfaces', async (req, res) => {
 
 // 获取统计数据
 app.get('/api/stats/:interface/:period', (req, res) => {
-    const { interface, period } = req.params;
+    const { interface: interfaceName, period } = req.params;
     const validPeriods = ['l', '5', 'h', 'd', 'm', 'y'];
-    
-    if (!interface.match(/^[a-zA-Z0-9]+[a-zA-Z0-9:._-]*$/)) {
+    if (!interfaceName.match(/^[a-zA-Z0-9]+[a-zA-Z0-9:._-]*$/)) {
         return res.status(400).json({ error: '无效的接口名称' });
     }
-    
     if (!validPeriods.includes(period)) {
         return res.status(400).json({ error: '无效的时间周期' });
     }
-
-    // 实时数据不缓存
     if (period === 'l') {
-        return getStatsWithoutCache(interface, period, res);
+        // 优先返回主动缓存的实时数据
+        const cachedQueue = cacheManager.get(`realtime:${interfaceName}`);
+        if (cachedQueue && cachedQueue.length > 0) {
+            return res.json({ data: cachedQueue });
+        }
+        // 否则降级为现查现算
+        return getStatsWithoutCache(interfaceName, period, res);
     }
-
-    // 检查缓存
-    const cacheKey = cacheManager.generateKey('stats', interface, period);
-    const cachedData = cacheManager.get(cacheKey);
-    
+    // 其他周期优先返回主动缓存
+    const cachedData = cacheManager.get(`stats:${interfaceName}:${period}`);
     if (cachedData) {
         return res.json(cachedData);
     }
-
-    // 获取缓存时间
-    const cacheTime = getCacheTimeForPeriod(period);
-    
-    // 执行命令并处理结果
-    getStatsWithoutCache(interface, period, res, (result) => {
+    // 否则降级为现查现算
+    getStatsWithoutCache(interfaceName, period, res, (result) => {
         // 缓存结果
-        cacheManager.set(cacheKey, result, cacheTime);
+        cacheManager.set(`stats:${interfaceName}:${period}`, result, PERIOD_INTERVAL * 2);
     });
 });
 
