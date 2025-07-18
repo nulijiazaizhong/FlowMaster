@@ -952,38 +952,35 @@
                     // 清理所有现有定时器
                     this.clearAllIntervals();
                     
+                    // 新增：分离定时器
                     if (this.autoRefresh) {
-                        // 优化：使用单个定时器管理所有刷新任务
-                        this.refreshInterval = setInterval(() => {
-                            const now = Date.now();
-                            
-                            // 实时数据：每秒更新
+                        // 实时数据每秒刷新
+                        this._realtimeInterval = setInterval(() => {
                             this.loadRealtimeStats();
                             this.updateLastUpdateTime();
-                            
-                            // 分钟数据：每60秒更新
-                            if (now % 60000 < 1000) {
-                                this.loadMinuteStats();
-                            }
-                            
-                            // 统计数据：每60秒更新
-                            if (now % 60000 < 1000) {
-                                this.stats.forEach((stat, idx) => this.loadStats(stat, idx));
-                            }
-                            
-                            // 缓存和系统状态：每30秒更新
-                            if (now % 30000 < 1000) {
-                                this.loadCacheStats();
-                                this.loadSystemMemory();
-                            }
                         }, 1000);
+                        // 统计数据/缓存/系统状态每60秒刷新
+                        this._statsInterval = setInterval(() => {
+                            this.loadMinuteStats();
+                            this.stats.forEach((stat, idx) => this.loadStats(stat, idx));
+                            this.loadCacheStats();
+                            this.loadSystemMemory();
+                        }, 60000);
                     }
                 },
-                // 新增：清理所有定时器
+                // 清理所有定时器
                 clearAllIntervals() {
                     if (this.refreshInterval) {
                         clearInterval(this.refreshInterval);
                         this.refreshInterval = null;
+                    }
+                    if (this._realtimeInterval) {
+                        clearInterval(this._realtimeInterval);
+                        this._realtimeInterval = null;
+                    }
+                    if (this._statsInterval) {
+                        clearInterval(this._statsInterval);
+                        this._statsInterval = null;
                     }
                 },
                 async loadVersion() {
@@ -1375,8 +1372,9 @@
                 this.startAutoRefresh();
                 this.loadVersion();
                 this.applyThemeFromPreference();
-                // 新增：监听窗口resize事件
-                window.addEventListener('resize', this.throttle(this.resizeAllCharts, 250));
+                // 修正：resize事件监听函数保存为实例属性，便于解绑
+                this._resizeHandler = this.throttle(this.resizeAllCharts, 250);
+                window.addEventListener('resize', this._resizeHandler);
                 
                 // 测试实时统计功能
                 if (this.debugMode) {
@@ -1414,7 +1412,9 @@
                 this.diagnosisResult = null;
                 
                 // 移除事件监听器
-                window.removeEventListener('resize', this.throttle(this.resizeAllCharts, 250));
+                if (this._resizeHandler) {
+                    window.removeEventListener('resize', this._resizeHandler);
+                }
                 
                 // 清理DOM引用
                 this.$refs = {};
