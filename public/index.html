@@ -257,7 +257,7 @@
                 <div class="col-md-12 mb-4">
                     <div class="card" :class="{ loading: realtimeStats.loading }">
                         <div class="card-header">
-                            <h5 class="card-title mb-0">实时统计</h5>
+                            <h5 class="card-title mb-0">实时统计 每5秒刷新</h5>
                         </div>
                         <div class="card-body">
                             <!-- 实时流量图表 -->
@@ -954,11 +954,11 @@
                     
                     // 新增：分离定时器
                     if (this.autoRefresh) {
-                        // 实时数据每秒刷新
+                        // 实时数据每5秒刷新
                         this._realtimeInterval = setInterval(() => {
                             this.loadRealtimeStats();
                             this.updateLastUpdateTime();
-                        }, 1000);
+                        }, 5000);
                         // 统计数据/缓存/系统状态每60秒刷新
                         this._statsInterval = setInterval(() => {
                             this.loadMinuteStats();

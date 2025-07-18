@@ -456,7 +456,7 @@ function getStatsWithoutCache(interface, period, res, callback) {
     let cmd;
     switch(period) {
         case 'l':
-            cmd = `vnstat -tr -i ${interface}`;
+            cmd = `vnstat -tr 5 -i ${interface}`;
             break;
         case '5':
             cmd = `vnstat -5 -i ${interface}`;
