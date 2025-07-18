@@ -568,7 +568,7 @@
                     const num = parseFloat(match[1]);
                     return isNaN(num) ? val : (num * factor).toFixed(2);
                 },
-                // 升级：移动端健壮的图表渲染函数，canvas尺寸为0时延迟重试，最多10次
+                // 升级：移动端健壮的图表渲染函数，canvas尺寸为0时延迟重试，最多20次，延迟200ms
                 safeRenderChart(renderFunc, chartKey, tryCount = 0) {
                     try {
                         // 自动推断ref
@@ -581,8 +581,8 @@
                         // 检查canvas尺寸
                         if (ctx && (ctx.offsetWidth === 0 || ctx.offsetHeight === 0 || ctx.width === 0 || ctx.height === 0)) {
                             if (this.debugMode) console.warn(`canvas尺寸为0，延迟重试[${chartKey}]`);
-                            if (tryCount < 10) {
-                                setTimeout(() => this.safeRenderChart(renderFunc, chartKey, tryCount + 1), 100);
+                            if (tryCount < 20) {
+                                setTimeout(() => this.safeRenderChart(renderFunc, chartKey, tryCount + 1), 200);
                                 return;
                             }
                         }
@@ -591,8 +591,8 @@
                         if (this.debugMode) {
                             console.warn(`Chart渲染失败[${chartKey}]，第${tryCount+1}次:`, e);
                         }
-                        if (tryCount < 10) {
-                            setTimeout(() => this.safeRenderChart(renderFunc, chartKey, tryCount + 1), 100);
+                        if (tryCount < 20) {
+                            setTimeout(() => this.safeRenderChart(renderFunc, chartKey, tryCount + 1), 200);
                         } else if (this.debugMode) {
                             console.error(`Chart渲染多次重试仍失败[${chartKey}]`);
                         }
@@ -1375,6 +1375,12 @@
                 // 修正：resize事件监听函数保存为实例属性，便于解绑
                 this._resizeHandler = this.throttle(this.resizeAllCharts, 250);
                 window.addEventListener('resize', this._resizeHandler);
+                // 新增：页面可见性变化时强制重绘所有图表
+                document.addEventListener('visibilitychange', () => {
+                    if (!document.hidden) {
+                        this.resizeAllCharts();
+                    }
+                });
                 
                 // 测试实时统计功能
                 if (this.debugMode) {
