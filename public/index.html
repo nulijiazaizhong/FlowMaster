@@ -332,6 +332,50 @@
     <!-- 已分离至main.css和dark-theme.css，无需保留内联样式 -->
 
     <script>
+    // ChartRenderScheduler: 统一调度所有图表渲染
+    class ChartRenderScheduler {
+        constructor() {
+            this.tasks = new Map(); // key: chartKey, value: {ref, getData, renderFunc, retry}
+            this.retryDelay = 120;
+            this.maxRetry = 30;
+        }
+        requestRender(chartKey, ref, getData, renderFunc, retry = 0) {
+            this.tasks.set(chartKey, {ref, getData, renderFunc, retry});
+            this._tryRender(chartKey);
+        }
+        _tryRender(chartKey) {
+            const task = this.tasks.get(chartKey);
+            if (!task) return;
+            let el = typeof task.ref === 'function' ? task.ref() : task.ref;
+            if (Array.isArray(el)) el = el[0];
+            const data = typeof task.getData === 'function' ? task.getData() : task.getData;
+            if (!el || !el.getContext) {
+                if (task.retry < this.maxRetry) {
+                    setTimeout(() => this._tryRender(chartKey), this.retryDelay);
+                    task.retry++;
+                }
+                return;
+            }
+            if (!data || (Array.isArray(data) && data.length === 0)) {
+                // 数据未就绪，等待数据
+                return;
+            }
+            // destroy 旧实例
+            if (el._chartInstance && typeof el._chartInstance.destroy === 'function') {
+                el._chartInstance.destroy();
+            }
+            // render 新实例
+            el._chartInstance = task.renderFunc(el, data);
+            this.tasks.delete(chartKey);
+        }
+        retryAll() {
+            for (const key of this.tasks.keys()) {
+                this._tryRender(key);
+            }
+        }
+    }
+    const chartScheduler = new ChartRenderScheduler();
+
         const app = Vue.createApp({
             data() {
                 return {
@@ -600,105 +644,74 @@
                 },
                 // 优化后的 renderMinuteChart
                 renderMinuteChart() {
-                    this.safeRenderChart(() => {
-                        const chartKey = 'minuteChart';
-                        let ctx = this.$refs.minuteChart;
-                        if (!ctx) {
-                            if (this.debugMode) console.warn('minuteChart ref 不存在');
-                            throw new Error('minuteChart ref 不存在');
+                    chartScheduler.requestRender(
+                        'minuteChart',
+                        () => this.$refs.minuteChart,
+                        () => this.minuteStats.data,
+                        (ctx, data) => {
+                            ctx.height = 180;
+                            const parent = ctx.parentElement;
+                            if (parent) ctx.width = parent.clientWidth;
+                            const unit = this.minuteStats.unit || 'MiB';
+                            const { labels, rx, tx } = this.parseStatData(data, unit);
+                            if (!labels.length) return null;
+                            return new Chart(ctx, {
+                                type: 'line',
+                                data: {
+                                    labels,
+                                    datasets: [
+                                        { label: `接收(${unit})`, data: rx, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.08)', tension: 0.3, fill: true },
+                                        { label: `发送(${unit})`, data: tx, borderColor: '#fb923c', backgroundColor: 'rgba(251,146,60,0.08)', tension: 0.3, fill: true }
+                                    ]
+                                },
+                                options: {
+                                    responsive: true,
+                                    plugins: { legend: { display: true }, tooltip: { enabled: true } },
+                                    scales: { y: { beginAtZero: true, title: { display: true, text: unit } } }
+                                }
+                            });
                         }
-                        ctx.height = 180;
-                        const parent = ctx.parentElement;
-                        if (parent) ctx.width = parent.clientWidth;
-                        const unit = 'MiB';
-                        const { labels, rx, tx } = this.parseStatData(this.minuteStats.data, unit);
-                        if (!labels.length) {
-                            if (this.debugMode) console.warn('minuteChart 数据为空');
-                            throw new Error('minuteChart 数据为空');
-                        }
-                        const existingChart = this.getChartInstance(chartKey);
-                        if (existingChart) existingChart.destroy();
-                        const chart = new Chart(ctx, {
-                            type: 'line',
-                            data: {
-                                labels,
-                                datasets: [
-                                    { label: `接收(${unit})`, data: rx, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.08)', tension: 0.3, fill: true },
-                                    { label: `发送(${unit})`, data: tx, borderColor: '#fb923c', backgroundColor: 'rgba(251,146,60,0.08)', tension: 0.3, fill: true }
-                                ]
-                            },
-                            options: {
-                                responsive: true,
-                                plugins: { legend: { display: true }, tooltip: { enabled: true } },
-                                scales: { y: { beginAtZero: true, title: { display: true, text: unit } } }
-                            }
-                        });
-                        this.setChartInstance(chartKey, chart);
-                    }, 'minuteChart');
+                    );
                 },
                 // 优化后的 renderStatChart
                 renderStatChart(index) {
-                    this.safeRenderChart(() => {
-                        const chartKey = `statChart${index}`;
-                        let ctx = this.$refs['statChart' + index];
-                        if (Array.isArray(ctx)) ctx = ctx[0];
-                        if (!ctx) {
-                            if (this.debugMode) console.warn(`statChart${index} ref 不存在`);
-                            throw new Error(`statChart${index} ref 不存在`);
+                    chartScheduler.requestRender(
+                        `statChart${index}`,
+                        () => this.$refs['statChart' + index],
+                        () => this.stats[index].data,
+                        (ctx, data) => {
+                            const period = this.stats[index].period;
+                            ctx.height = period === 'y' ? 320 : 180;
+                            const parent = ctx.parentElement;
+                            if (parent) ctx.width = parent.clientWidth;
+                            let unit = 'MiB';
+                            if (period === 'd' || period === 'm') unit = 'GiB';
+                            if (period === 'y') unit = 'TiB';
+                            const { labels, rx, tx } = this.parseStatData(data, unit);
+                            if (!labels.length) return null;
+                            const chartType = period === 'y' ? 'bar' : 'line';
+                            return new Chart(ctx, {
+                                type: chartType,
+                                data: {
+                                    labels,
+                                    datasets: [
+                                        { label: `接收(${unit})`, data: rx, backgroundColor: period === 'y' ? '#2563eb' : 'rgba(37,99,235,0.08)', borderColor: '#2563eb', tension: 0.3, fill: period !== 'y' },
+                                        { label: `发送(${unit})`, data: tx, backgroundColor: period === 'y' ? '#fb923c' : 'rgba(251,146,60,0.08)', borderColor: '#fb923c', tension: 0.3, fill: period !== 'y' }
+                                    ]
+                                },
+                                options: {
+                                    responsive: true,
+                                    plugins: { legend: { display: true }, tooltip: { enabled: true } },
+                                    scales: { y: { beginAtZero: true, title: { display: true, text: unit } } }
+                                }
+                            });
                         }
-                        const period = this.stats[index].period;
-                        ctx.height = period === 'y' ? 320 : 180;
-                        const parent = ctx.parentElement;
-                        if (parent) ctx.width = parent.clientWidth;
-                        let unit = 'MiB';
-                        if (period === 'd' || period === 'm') unit = 'GiB';
-                        if (period === 'y') unit = 'TiB';
-                        const { labels, rx, tx } = this.parseStatData(this.stats[index].data, unit);
-                        if (!labels.length) {
-                            if (this.debugMode) console.warn(`statChart${index} 数据为空`);
-                            throw new Error(`statChart${index} 数据为空`);
-                        }
-                        const existingChart = this.getChartInstance(chartKey);
-                        if (existingChart) existingChart.destroy();
-                        const chartType = period === 'y' ? 'bar' : 'line';
-                        const chart = new Chart(ctx, {
-                            type: chartType,
-                            data: {
-                                labels,
-                                datasets: [
-                                    { label: `接收(${unit})`, data: rx, backgroundColor: period === 'y' ? '#2563eb' : 'rgba(37,99,235,0.08)', borderColor: '#2563eb', tension: 0.3, fill: period !== 'y' },
-                                    { label: `发送(${unit})`, data: tx, backgroundColor: period === 'y' ? '#fb923c' : 'rgba(251,146,60,0.08)', borderColor: '#fb923c', tension: 0.3, fill: period !== 'y' }
-                                ]
-                            },
-                            options: {
-                                responsive: true,
-                                plugins: { legend: { display: true }, tooltip: { enabled: true } },
-                                scales: { y: { beginAtZero: true, title: { display: true, text: unit } } }
-                            }
-                        });
-                        this.setChartInstance(chartKey, chart);
-                    }, `statChart${index}`);
+                    );
                 },
                 // 新增：统一重绘所有图表（窗口resize时调用）
                 resizeAllCharts() {
-                    // 先 destroy 所有相关 Chart.js 实例
-                    this.destroyChartInstance('minuteChart');
-                    this.destroyChartInstance('_realtimeChart');
-                    this.destroyChartInstance('dateRangeChart');
-                    if (this.stats && this.stats.length) {
-                        for (let idx = 0; idx < this.stats.length; idx++) {
-                            this.destroyChartInstance('statChart' + idx);
-                        }
-                    }
-                    // 延迟 200ms 后再 render，确保尺寸恢复
-                    setTimeout(() => {
-                        this.renderMinuteChart();
-                        if (this.stats && this.stats.length) {
-                            this.stats.forEach((stat, idx) => this.renderStatChart(idx));
-                        }
-                        this.renderRealtimeChart();
-                        this.renderDateRangeChart();
-                    }, 200);
+                    // 统一调度重试所有未完成的渲染任务
+                    chartScheduler.retryAll();
                 },
                 async loadStats(stat, index) {
                     stat.loading = true;
@@ -817,59 +830,45 @@
                     return parsedData;
                 },
                 renderRealtimeChart() {
-                    this.safeRenderChart(() => {
-                        const chartKey = '_realtimeChart';
-                        if (this._realtimeChart) this._realtimeChart.destroy();
-                        const ctx = this.$refs.realtimeChart;
-                        if (!ctx) {
-                            if (this.debugMode) console.warn('realtimeChart ref 不存在');
-                            throw new Error('realtimeChart ref 不存在');
-                        }
-                        ctx.height = 200;
-                        const parent = ctx.parentElement;
-                        if (parent) ctx.width = parent.clientWidth;
-                        const oneMinuteAgo = Date.now() - 1 * 60 * 1000;
-                        const chartData = this.realtimeData.filter(item => item.timestamp >= oneMinuteAgo);
-                        let labels, receiveSpeeds, sendSpeeds;
-                        if (chartData.length === 0) {
-                            if (this.debugMode) console.log('实时图表：使用默认数据');
-                            const now = new Date();
-                            labels = [now.toLocaleTimeString()];
-                            receiveSpeeds = [0];
-                            sendSpeeds = [0];
-                        } else {
-                            labels = chartData.map(item => item.time);
-                            receiveSpeeds = chartData.map(item => item.receiveSpeed);
-                            sendSpeeds = chartData.map(item => item.sendSpeed);
-                        }
-                        if (!labels.length) {
-                            if (this.debugMode) console.warn('realtimeChart 数据为空');
-                            throw new Error('realtimeChart 数据为空');
-                        }
-                        this._realtimeChart = new Chart(ctx, {
-                            type: 'line',
-                            data: {
-                                labels,
-                                datasets: [
-                                    { label: '接收速度(kb/秒)', data: receiveSpeeds, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.08)', tension: 0.3, fill: true },
-                                    { label: '发送速度(kb/秒)', data: sendSpeeds, borderColor: '#fb923c', backgroundColor: 'rgba(251,146,60,0.08)', tension: 0.3, fill: true }
-                                ]
-                            },
-                            options: {
-                                responsive: true,
-                                plugins: { 
-                                    legend: { display: true }, 
-                                    tooltip: { enabled: true } 
-                                },
-                                scales: { 
-                                    y: { 
-                                        beginAtZero: true, 
-                                        title: { display: true, text: '速度 (kb/秒)' } 
-                                    } 
-                                }
+                    chartScheduler.requestRender(
+                        '_realtimeChart',
+                        () => this.$refs.realtimeChart,
+                        () => this.realtimeData,
+                        (ctx, data) => {
+                            ctx.height = 200;
+                            const parent = ctx.parentElement;
+                            if (parent) ctx.width = parent.clientWidth;
+                            const oneMinuteAgo = Date.now() - 1 * 60 * 1000;
+                            const chartData = data.filter(item => item.timestamp >= oneMinuteAgo);
+                            let labels, receiveSpeeds, sendSpeeds;
+                            if (chartData.length === 0) {
+                                const now = new Date();
+                                labels = [now.toLocaleTimeString()];
+                                receiveSpeeds = [0];
+                                sendSpeeds = [0];
+                            } else {
+                                labels = chartData.map(item => item.time);
+                                receiveSpeeds = chartData.map(item => item.receiveSpeed);
+                                sendSpeeds = chartData.map(item => item.sendSpeed);
                             }
-                        });
-                    }, '_realtimeChart');
+                            if (!labels.length) return null;
+                            return new Chart(ctx, {
+                                type: 'line',
+                                data: {
+                                    labels,
+                                    datasets: [
+                                        { label: '接收速度(kb/秒)', data: receiveSpeeds, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.08)', tension: 0.3, fill: true },
+                                        { label: '发送速度(kb/秒)', data: sendSpeeds, borderColor: '#fb923c', backgroundColor: 'rgba(251,146,60,0.08)', tension: 0.3, fill: true }
+                                    ]
+                                },
+                                options: {
+                                    responsive: true,
+                                    plugins: { legend: { display: true }, tooltip: { enabled: true } },
+                                    scales: { y: { beginAtZero: true, title: { display: true, text: '速度 (kb/秒)' } } }
+                                }
+                            });
+                        }
+                    );
                 },
                 renderRealtimeTable() {
                     // 优化：使用DocumentFragment减少DOM操作
@@ -1029,7 +1028,7 @@
                     this.dateRange.start = '';
                     this.dateRange.end = '';
                     // 清理图表实例
-                    this.destroyChartInstance('dateRangeChart');
+                    // this.destroyChartInstance('dateRangeChart'); // 不再需要手动销毁
                 },
                 // 新：将格式化后的数据渲染为HTML表格
                 renderTableHtml(data, unit) {
@@ -1323,40 +1322,33 @@
                 },
                 // 新增：渲染指定日期查询结果图表
                 renderDateRangeChart() {
-                    this.safeRenderChart(() => {
-                        const chartKey = 'dateRangeChart';
-                        const existingChart = this.getChartInstance(chartKey);
-                        if (existingChart) existingChart.destroy();
-                        const ctx = this.$refs.dateRangeChart;
-                        if (!ctx) {
-                            if (this.debugMode) console.warn('dateRangeChart ref 不存在');
-                            throw new Error('dateRangeChart ref 不存在');
+                    chartScheduler.requestRender(
+                        'dateRangeChart',
+                        () => this.$refs.dateRangeChart,
+                        () => this.dateRangeStats.data,
+                        (ctx, data) => {
+                            ctx.height = 180;
+                            const parent = ctx.parentElement;
+                            if (parent) ctx.width = parent.clientWidth;
+                            const { labels, rx, tx } = this.parseStatData(data, this.dateRangeStats.unit);
+                            if (!labels.length) return null;
+                            return new Chart(ctx, {
+                                type: 'line',
+                                data: {
+                                    labels,
+                                    datasets: [
+                                        { label: `接收(${this.dateRangeStats.unit})`, data: rx, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.08)', tension: 0.3, fill: true },
+                                        { label: `发送(${this.dateRangeStats.unit})`, data: tx, borderColor: '#fb923c', backgroundColor: 'rgba(251,146,60,0.08)', tension: 0.3, fill: true }
+                                    ]
+                                },
+                                options: {
+                                    responsive: true,
+                                    plugins: { legend: { display: true }, tooltip: { enabled: true } },
+                                    scales: { y: { beginAtZero: true, title: { display: true, text: this.dateRangeStats.unit } } }
+                                }
+                            });
                         }
-                        ctx.height = 180;
-                        const parent = ctx.parentElement;
-                        if (parent) ctx.width = parent.clientWidth;
-                        const { labels, rx, tx } = this.parseStatData(this.dateRangeStats.data, this.dateRangeStats.unit);
-                        if (!labels.length) {
-                            if (this.debugMode) console.warn('dateRangeChart 数据为空');
-                            throw new Error('dateRangeChart 数据为空');
-                        }
-                        const chart = new Chart(ctx, {
-                            type: 'line',
-                            data: {
-                                labels,
-                                datasets: [
-                                    { label: `接收(${this.dateRangeStats.unit})`, data: rx, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.08)', tension: 0.3, fill: true },
-                                    { label: `发送(${this.dateRangeStats.unit})`, data: tx, borderColor: '#fb923c', backgroundColor: 'rgba(251,146,60,0.08)', tension: 0.3, fill: true }
-                                ]
-                            },
-                            options: {
-                                responsive: true,
-                                plugins: { legend: { display: true }, tooltip: { enabled: true } },
-                                scales: { y: { beginAtZero: true, title: { display: true, text: this.dateRangeStats.unit } } }
-                            }
-                        });
-                        this.setChartInstance(chartKey, chart);
-                    }, 'dateRangeChart');
+                    );
                 },
                 // 新增：添加图表更新到队列
                 queueChartUpdate(updateFunc) {
@@ -1383,13 +1375,10 @@
                 this.loadVersion();
                 this.applyThemeFromPreference();
                 // 修正：resize事件监听函数保存为实例属性，便于解绑
-                this._resizeHandler = this.throttle(this.resizeAllCharts, 250);
-                window.addEventListener('resize', this._resizeHandler);
+                window.addEventListener('resize', () => chartScheduler.retryAll());
                 // 只保留一次 visibilitychange 事件监听
                 document.addEventListener('visibilitychange', () => {
-                    if (!document.hidden) {
-                        this.resizeAllCharts();
-                    }
+                    if (!document.hidden) chartScheduler.retryAll();
                 });
                 
                 // 新增：IntersectionObserver 机制，统计图表进入视口时自动重绘
