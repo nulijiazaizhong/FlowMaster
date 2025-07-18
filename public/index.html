@@ -681,14 +681,24 @@
                 },
                 // 新增：统一重绘所有图表（窗口resize时调用）
                 resizeAllCharts() {
-                    // 重新渲染分钟图表
-                    this.$nextTick(() => {
+                    // 先 destroy 所有相关 Chart.js 实例
+                    this.destroyChartInstance('minuteChart');
+                    this.destroyChartInstance('_realtimeChart');
+                    this.destroyChartInstance('dateRangeChart');
+                    if (this.stats && this.stats.length) {
+                        for (let idx = 0; idx < this.stats.length; idx++) {
+                            this.destroyChartInstance('statChart' + idx);
+                        }
+                    }
+                    // 延迟 200ms 后再 render，确保尺寸恢复
+                    setTimeout(() => {
                         this.renderMinuteChart();
-                        // 重新渲染所有统计图表
                         if (this.stats && this.stats.length) {
                             this.stats.forEach((stat, idx) => this.renderStatChart(idx));
                         }
-                    });
+                        this.renderRealtimeChart();
+                        this.renderDateRangeChart();
+                    }, 200);
                 },
                 async loadStats(stat, index) {
                     stat.loading = true;
@@ -1375,12 +1385,39 @@
                 // 修正：resize事件监听函数保存为实例属性，便于解绑
                 this._resizeHandler = this.throttle(this.resizeAllCharts, 250);
                 window.addEventListener('resize', this._resizeHandler);
-                // 新增：页面可见性变化时强制重绘所有图表
+                // 只保留一次 visibilitychange 事件监听
                 document.addEventListener('visibilitychange', () => {
                     if (!document.hidden) {
                         this.resizeAllCharts();
                     }
                 });
+                
+                // 新增：IntersectionObserver 机制，统计图表进入视口时自动重绘
+                const chartRefs = [
+                    { ref: 'minuteChart', render: this.renderMinuteChart },
+                    { ref: 'realtimeChart', render: this.renderRealtimeChart },
+                    { ref: 'dateRangeChart', render: this.renderDateRangeChart },
+                    // statChart0-3
+                    ...[0,1,2,3].map(idx => ({ ref: 'statChart' + idx, render: () => this.renderStatChart(idx) }))
+                ];
+                if ('IntersectionObserver' in window) {
+                    chartRefs.forEach(({ ref, render }) => {
+                        this.$nextTick(() => {
+                            let el = this.$refs[ref];
+                            if (Array.isArray(el)) el = el[0];
+                            if (!el) return;
+                            const observer = new IntersectionObserver((entries, obs) => {
+                                entries.forEach(entry => {
+                                    if (entry.isIntersecting) {
+                                        try { render(); } catch(e) {}
+                                        obs.disconnect();
+                                    }
+                                });
+                            }, { threshold: 0.1 });
+                            observer.observe(el);
+                        });
+                    });
+                }
                 
                 // 测试实时统计功能
                 if (this.debugMode) {
