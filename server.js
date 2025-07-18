@@ -543,7 +543,9 @@ app.get('/api/stats/:interface/:period', (req, res) => {
         // 优先返回主动缓存的实时数据
         const cachedQueue = cacheManager.get(`realtime:${interfaceName}`);
         if (cachedQueue && cachedQueue.length > 0) {
-            return res.json({ data: cachedQueue });
+            // 拍平为一维字符串数组，兼容前端
+            const flat = cachedQueue.flat();
+            return res.json({ data: flat });
         }
         // 否则降级为现查现算
         return getStatsWithoutCache(interfaceName, period, res);
