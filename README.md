@@ -288,6 +288,27 @@ pm2 monit
 
 #### 7. 更新脚本
 
+##### 一键自动更新
+
+- **国际网络用户**（可直接访问 GitHub）：
+
+```bash
+curl -o install.sh https://raw.githubusercontent.com/vbskycn/FlowMaster/main/install.sh && chmod +x install.sh && sudo ./install.sh
+```
+
+- **国内网络用户**（推荐使用加速代理）：
+
+```bash
+curl -o install.sh https://gh-proxy.com/https://raw.githubusercontent.com/vbskycn/FlowMaster/main/install.sh && chmod +x install.sh && sudo ./install.sh
+```
+
+- 运行后，脚本会弹出菜单，**请选择数字 3（更新 FlowMaster）**，即可自动拉取最新代码并重启服务。
+- 如果你是在/root 目录安装的，也可以直接 `sudo ./install.sh`，然后选择 3更新。
+
+##### 手动更新
+
+如果你是手动用源码部署的：
+
 ```bash
 cd FlowMaster #进入脚本目录
 git pull #更新仓库
