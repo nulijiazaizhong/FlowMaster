@@ -807,17 +807,17 @@
                         return null;
                     }
                     const now = new Date();
-                    // 统一转换为kb/s
-                    const receiveSpeedKb = this.convertSpeedToUnit(parseFloat(receiveMatch[1]), receiveMatch[2]);
-                    const sendSpeedKb = this.convertSpeedToUnit(parseFloat(sendMatch[1]), sendMatch[2]);
+                    // 统一转换为Mb/s
+                    const receiveSpeedMb = this.convertSpeedToUnit(parseFloat(receiveMatch[1]), receiveMatch[2]);
+                    const sendSpeedMb = this.convertSpeedToUnit(parseFloat(sendMatch[1]), sendMatch[2]);
                     const parsedData = {
                         time: now.toLocaleTimeString(),
                         timestamp: now.getTime(),
-                        receiveSpeed: receiveSpeedKb,
-                        receiveSpeedUnit: 'kb/秒',
+                        receiveSpeed: receiveSpeedMb,
+                        receiveSpeedUnit: 'Mb/秒',
                         receivePackets: parseInt(receiveMatch[3]),
-                        sendSpeed: sendSpeedKb,
-                        sendSpeedUnit: 'kb/秒',
+                        sendSpeed: sendSpeedMb,
+                        sendSpeedUnit: 'Mb/秒',
                         sendPackets: parseInt(sendMatch[3])
                     };
                     // 验证解析结果
@@ -857,14 +857,14 @@
                                 data: {
                                     labels,
                                     datasets: [
-                                        { label: '接收速度(kb/秒)', data: receiveSpeeds, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.08)', tension: 0.3, fill: true },
-                                        { label: '发送速度(kb/秒)', data: sendSpeeds, borderColor: '#fb923c', backgroundColor: 'rgba(251,146,60,0.08)', tension: 0.3, fill: true }
+                                        { label: '接收速度(Mb/秒)', data: receiveSpeeds, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.08)', tension: 0.3, fill: true },
+                                        { label: '发送速度(Mb/秒)', data: sendSpeeds, borderColor: '#fb923c', backgroundColor: 'rgba(251,146,60,0.08)', tension: 0.3, fill: true }
                                     ]
                                 },
                                 options: {
                                     responsive: true,
                                     plugins: { legend: { display: true }, tooltip: { enabled: true } },
-                                    scales: { y: { beginAtZero: true, title: { display: true, text: '速度 (kb/秒)' } } }
+                                    scales: { y: { beginAtZero: true, title: { display: true, text: '速度 (Mb/秒)' } } }
                                 }
                             });
                         }
@@ -889,7 +889,7 @@
                         // 优化：使用数组拼接替代字符串拼接
                         const tableParts = [];
                         tableParts.push('<table class="table table-sm table-bordered mb-0" style="font-size:13px;">');
-                        tableParts.push('<thead><tr><th>时间</th><th>接收速度(kb/秒)</th><th>接收数据包</th><th>发送速度(kb/秒)</th><th>发送数据包</th></tr></thead>');
+                        tableParts.push('<thead><tr><th>时间</th><th>接收速度(Mb/秒)</th><th>接收数据包</th><th>发送速度(Mb/秒)</th><th>发送数据包</th></tr></thead>');
                         tableParts.push('<tbody>');
                         
                         // 显示解析后的数据表格
@@ -904,9 +904,9 @@
                             
                             rowParts.push(`<tr style='${style}'>`);
                             rowParts.push(`<td>${item.time}</td>`);
-                            rowParts.push(`<td style='color:#2563eb;font-weight:500;'>${item.receiveSpeed.toFixed(2)} kb/秒</td>`);
+                            rowParts.push(`<td style='color:#2563eb;font-weight:500;'>${item.receiveSpeed.toFixed(2)} Mb/秒</td>`);
                             rowParts.push(`<td style='color:#2563eb;font-weight:500;'>${item.receivePackets} 包/s</td>`);
-                            rowParts.push(`<td style='color:#fb923c;font-weight:500;'>${item.sendSpeed.toFixed(2)} kb/秒</td>`);
+                            rowParts.push(`<td style='color:#fb923c;font-weight:500;'>${item.sendSpeed.toFixed(2)} Mb/秒</td>`);
                             rowParts.push(`<td style='color:#fb923c;font-weight:500;'>${item.sendPackets} 包/s</td>`);
                             rowParts.push('</tr>');
                         });
@@ -1111,7 +1111,7 @@
                     const userDebugMode = localStorage.getItem('debugMode');
                     this.debugMode = (userDebugMode === 'true');
                 },
-                // 新：速度单位统一转换为kb/秒
+                // 新：速度单位统一转换为Mb/秒
                 convertSpeedToUnit(speed, fromUnit) {
                     // 先统一为b/秒
                     let speedInBits = speed;
@@ -1129,8 +1129,8 @@
                         default:
                             speedInBits = speed;
                     }
-                    // 再转为kb/秒
-                    return speedInBits / 1024;
+                    // 再转为Mb/秒
+                    return speedInBits / (1024 * 1024);
                 },
                 // 新增：智能选择最佳速度显示单位
                 getBestSpeedUnit(speeds) {
